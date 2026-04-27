@@ -1,69 +1,72 @@
-# SparkMind V3.1.1 — AI Strategic Guide Platform
+# SparkMind V4.0 ULTIMATE — AI Strategic Guide Platform
 
 ## Project Overview
-- **Name**: SparkMind V3.1.1
-- **Goal**: AI-powered strategic guide platform yang menganalisis tantangan dan memberikan action plan strategis
-- **Engine**: Sovereign AI Engine V3.1 — 14+ kategori analisis
-- **Version History**: V1 → V2 → V3 → **V3.1.1** (current)
+- **Name**: SparkMind V4.0 ULTIMATE
+- **Goal**: AI-powered strategic guide platform — 16+ kategori analisis + Dashboard Charts + Journal + Dark/Light Mode
+- **Engine**: Sovereign AI Engine V4 — 16+ categories
+- **Version History**: V1 → V2 → V3 → V3.1.1 → **V4.0** (current)
 
 ## URLs
 - **Production**: https://sparkmind-v2.pages.dev
 - **GitHub**: https://github.com/ganihypha/Sparkmind
 
-## What's New in V3.1.1 (from V3)
+## What's New in V4.0 (from V3.1.1)
 
-| Feature | V3 | V3.1.1 |
-|---------|-----|---------|
-| AI Categories | 12+ | **14+** (+tujuan hidup, networking) |
-| Dashboard Analytics | No | **YES** — Overview semua progress |
-| Vision Board | No | **YES** — Visualize goals & dreams |
-| Onboarding Flow | No | **YES** — First-time user experience |
-| Search & Filter | No | **YES** — Search resources |
-| Export Data | No | **YES** — Export to text file |
-| Pomodoro Sound | No | **YES** — Sound notifications |
-| AI Coach | Basic | **Enhanced** — with blockers + accountability |
-| Default Tab | Analyzer | **Dashboard** — analytics first |
+| Feature | V3.1.1 | V4.0 |
+|---------|--------|------|
+| AI Categories | 14+ | **16+** (+parenting, +time freedom) |
+| Dashboard Charts | No | **YES** — Visual bar chart progress |
+| Journal System | No | **YES** — Daily journal + mood tracker |
+| Dark/Light Mode | Dark only | **YES** — Toggle switch |
+| Toast Notifications | No | **YES** — Achievement & action alerts |
+| AI Typing Effect | No | **YES** — Smooth character streaming |
+| Expandable Resources | Static | **YES** — Click for detail |
+| Resource Count | 17 | **19+** (+journal guide, +parenting) |
+| Theme | Dark only | **Dark + Light** — auto preference |
 
 ## Complete Feature List
 
 ### AI Tools
-- **AI Sovereign Engine V3.1** — 14+ categories: bisnis, karir, skill, finansial, produktivitas, mental health, hubungan, pendidikan, kesehatan, konten/creator, leadership, tujuan hidup/ikigai, networking/social
+- **AI Sovereign Engine V4** — 16+ categories: bisnis, karir, skill, finansial, produktivitas, mental health, hubungan, pendidikan, kesehatan, konten/creator, leadership, tujuan hidup/ikigai, networking, parenting, time freedom
 - **SWOT Analyzer** — Generate SWOT analysis instan
-- **AI Coach Mode** — Personal coaching with goal + blockers + accountability
+- **AI Coach V4** — Personal coaching with goal + blockers + accountability
+- **AI Typing Effect** — Smooth progressive HTML rendering
 
 ### Productivity
-- **Dashboard Analytics** (NEW) — Overview: goals count, habits count, focus time, best streak, progress bars
-- **Pomodoro Timer Pro** (UPGRADED) — 25/5/15 timer, visual ring, sound notifications, auto mode switch
-- **Goal Tracker Pro** — Track goals, milestones, progress bar, localStorage persistence
-- **Habit Tracker** — Daily check-in, streak counter, localStorage persistence
+- **Dashboard with Charts** (NEW) — Visual bar chart of goal progress + stats cards
+- **Pomodoro Timer Pro** — 25/5/15 timer, visual ring, sound notifications
+- **Goal Tracker Pro** — Milestones, progress bar, localStorage persistence
+- **Habit Tracker** — Daily check-in, streak counter
 
 ### Insights
-- **Vision Board** (NEW) — Big vision, 1-year, 3-month, this-week goals visualization
-- **Weekly Review** — 3 wins, 3 learnings, next week focus
-- **Resource Library** — 17+ frameworks with search & filter
-- **Export Data** (NEW) — Export all data to text file
+- **Journal System** (NEW) — Daily journal + mood tracker (6 moods) + gratitude + reflection + lesson
+- **Vision Board** — Big vision, 1-year, 3-month, this-week goals
+- **Weekly Review** — 3 wins, 3 learnings, next focus
+- **Resource Library** — 19+ frameworks with search + expandable detail
 
 ### UX/UI
-- **Onboarding Flow** (NEW) — Welcome screen with name input
-- **Cinematic Dark Theme** — Glassmorphism, neon glow, floating orbs
-- **Responsive** — Mobile-friendly with sidebar toggle
-- **Quote Ticker** — Random motivational quote in header
+- **Dark/Light Mode** (NEW) — Toggle in header, remembers preference
+- **Toast Notifications** (NEW) — Success, error, info, warning toasts
+- **Onboarding Flow** — Welcome screen with name input
+- **Cinematic Theme** — Glassmorphism, gradients, smooth animations
+- **Responsive** — Mobile-friendly sidebar toggle
+- **Export Data** — Export all data to text file
 
 ## API Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Landing page |
 | GET | `/app` | Dashboard app |
-| POST | `/api/analyze` | AI strategic analysis |
+| POST | `/api/analyze` | AI strategic analysis (16+ categories) |
 | POST | `/api/swot` | SWOT analysis generator |
 | POST | `/api/coach` | AI coaching session |
-| GET | `/api/resources` | Resource library |
+| GET | `/api/resources` | Resource library (19+ items with detail) |
 | GET | `/api/insights` | Daily insights |
 | GET | `/api/quotes` | Random motivational quote |
 | GET | `/api/health` | Health check |
 
 ## Monetization
-- **Starter**: Gratis selamanya (5 analysis/hari, 3 goals)
+- **Starter**: Gratis selamanya (5 analysis/hari)
 - **Pro**: Rp 79K/bulan (unlimited)
 - **Enterprise**: Custom
 
