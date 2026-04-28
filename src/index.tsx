@@ -1,8 +1,91 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
-const app = new Hono()
+// ============================================
+// CLOUDFLARE BINDINGS (env vars)
+// ============================================
+type Bindings = {
+  DUITKU_API_KEY?: string
+  DUITKU_MERCHANT_CODE?: string
+  DUITKU_ENV?: string  // 'sandbox' | 'production'
+  PUBLIC_BASE_URL?: string
+}
+
+const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
+
+// ============================================
+// DUITKU CONFIG (fallback for sandbox dev)
+// In production, set these via wrangler pages secret put
+// ============================================
+const DUITKU_DEFAULT = {
+  apiKey: 'ca1fe8817dc4dcab2b39d5218a2c8f62',
+  merchantCode: 'DS30026',
+  env: 'sandbox' as const,
+}
+
+function getDuitkuConfig(c: any) {
+  const env = c.env || {}
+  return {
+    apiKey: env.DUITKU_API_KEY || DUITKU_DEFAULT.apiKey,
+    merchantCode: env.DUITKU_MERCHANT_CODE || DUITKU_DEFAULT.merchantCode,
+    isProd: (env.DUITKU_ENV || DUITKU_DEFAULT.env) === 'production',
+    baseUrl: env.PUBLIC_BASE_URL || new URL(c.req.url).origin,
+  }
+}
+
+// SHA256 using Web Crypto API (Cloudflare Workers compatible)
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input)
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// MD5 for callback signature verification (Duitku callback uses MD5)
+// Lightweight pure-JS MD5 implementation
+function md5(s: string): string {
+  function rh(n: number) { let j, s = ''; for (j = 0; j <= 3; j++) s += ((n >> (j * 8 + 4)) & 0x0F).toString(16) + ((n >> (j * 8)) & 0x0F).toString(16); return s }
+  function ad(x: number, y: number) { const l = (x & 0xFFFF) + (y & 0xFFFF); const m = (x >> 16) + (y >> 16) + (l >> 16); return (m << 16) | (l & 0xFFFF) }
+  function rl(n: number, c: number) { return (n << c) | (n >>> (32 - c)) }
+  function cm(q: number, a: number, b: number, x: number, s: number, t: number) { return ad(rl(ad(ad(a, q), ad(x, t)), s), b) }
+  function ff(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cm((b & c) | ((~b) & d), a, b, x, s, t) }
+  function gg(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cm((b & d) | (c & (~d)), a, b, x, s, t) }
+  function hh(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cm(b ^ c ^ d, a, b, x, s, t) }
+  function ii(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cm(c ^ (b | (~d)), a, b, x, s, t) }
+  function cv(s: string) { let n = ((s.length + 8) >> 6) + 1; const m = new Array(n * 16); let i; for (i = 0; i < n * 16; i++) m[i] = 0; for (i = 0; i < s.length; i++) m[i >> 2] |= s.charCodeAt(i) << ((i % 4) * 8); m[i >> 2] |= 0x80 << ((i % 4) * 8); m[n * 16 - 2] = s.length * 8; return m }
+  // UTF-8 encode
+  s = unescape(encodeURIComponent(s))
+  const x = cv(s); let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878
+  for (let i = 0; i < x.length; i += 16) {
+    const oa = a, ob = b, oc = c, od = d
+    a = ff(a, b, c, d, x[i + 0], 7, -680876936); d = ff(d, a, b, c, x[i + 1], 12, -389564586); c = ff(c, d, a, b, x[i + 2], 17, 606105819); b = ff(b, c, d, a, x[i + 3], 22, -1044525330)
+    a = ff(a, b, c, d, x[i + 4], 7, -176418897); d = ff(d, a, b, c, x[i + 5], 12, 1200080426); c = ff(c, d, a, b, x[i + 6], 17, -1473231341); b = ff(b, c, d, a, x[i + 7], 22, -45705983)
+    a = ff(a, b, c, d, x[i + 8], 7, 1770035416); d = ff(d, a, b, c, x[i + 9], 12, -1958414417); c = ff(c, d, a, b, x[i + 10], 17, -42063); b = ff(b, c, d, a, x[i + 11], 22, -1990404162)
+    a = ff(a, b, c, d, x[i + 12], 7, 1804603682); d = ff(d, a, b, c, x[i + 13], 12, -40341101); c = ff(c, d, a, b, x[i + 14], 17, -1502002290); b = ff(b, c, d, a, x[i + 15], 22, 1236535329)
+    a = gg(a, b, c, d, x[i + 1], 5, -165796510); d = gg(d, a, b, c, x[i + 6], 9, -1069501632); c = gg(c, d, a, b, x[i + 11], 14, 643717713); b = gg(b, c, d, a, x[i + 0], 20, -373897302)
+    a = gg(a, b, c, d, x[i + 5], 5, -701558691); d = gg(d, a, b, c, x[i + 10], 9, 38016083); c = gg(c, d, a, b, x[i + 15], 14, -660478335); b = gg(b, c, d, a, x[i + 4], 20, -405537848)
+    a = gg(a, b, c, d, x[i + 9], 5, 568446438); d = gg(d, a, b, c, x[i + 14], 9, -1019803690); c = gg(c, d, a, b, x[i + 3], 14, -187363961); b = gg(b, c, d, a, x[i + 8], 20, 1163531501)
+    a = gg(a, b, c, d, x[i + 13], 5, -1444681467); d = gg(d, a, b, c, x[i + 2], 9, -51403784); c = gg(c, d, a, b, x[i + 7], 14, 1735328473); b = gg(b, c, d, a, x[i + 12], 20, -1926607734)
+    a = hh(a, b, c, d, x[i + 5], 4, -378558); d = hh(d, a, b, c, x[i + 8], 11, -2022574463); c = hh(c, d, a, b, x[i + 11], 16, 1839030562); b = hh(b, c, d, a, x[i + 14], 23, -35309556)
+    a = hh(a, b, c, d, x[i + 1], 4, -1530992060); d = hh(d, a, b, c, x[i + 4], 11, 1272893353); c = hh(c, d, a, b, x[i + 7], 16, -155497632); b = hh(b, c, d, a, x[i + 10], 23, -1094730640)
+    a = hh(a, b, c, d, x[i + 13], 4, 681279174); d = hh(d, a, b, c, x[i + 0], 11, -358537222); c = hh(c, d, a, b, x[i + 3], 16, -722521979); b = hh(b, c, d, a, x[i + 6], 23, 76029189)
+    a = hh(a, b, c, d, x[i + 9], 4, -640364487); d = hh(d, a, b, c, x[i + 12], 11, -421815835); c = hh(c, d, a, b, x[i + 15], 16, 530742520); b = hh(b, c, d, a, x[i + 2], 23, -995338651)
+    a = ii(a, b, c, d, x[i + 0], 6, -198630844); d = ii(d, a, b, c, x[i + 7], 10, 1126891415); c = ii(c, d, a, b, x[i + 14], 15, -1416354905); b = ii(b, c, d, a, x[i + 5], 21, -57434055)
+    a = ii(a, b, c, d, x[i + 12], 6, 1700485571); d = ii(d, a, b, c, x[i + 3], 10, -1894986606); c = ii(c, d, a, b, x[i + 10], 15, -1051523); b = ii(b, c, d, a, x[i + 1], 21, -2054922799)
+    a = ii(a, b, c, d, x[i + 8], 6, 1873313359); d = ii(d, a, b, c, x[i + 15], 10, -30611744); c = ii(c, d, a, b, x[i + 6], 15, -1560198380); b = ii(b, c, d, a, x[i + 13], 21, 1309151649)
+    a = ii(a, b, c, d, x[i + 4], 6, -145523070); d = ii(d, a, b, c, x[i + 11], 10, -1120210379); c = ii(c, d, a, b, x[i + 2], 15, 718787259); b = ii(b, c, d, a, x[i + 9], 21, -343485551)
+    a = ad(a, oa); b = ad(b, ob); c = ad(c, oc); d = ad(d, od)
+  }
+  return rh(a) + rh(b) + rh(c) + rh(d)
+}
+
+// Pricing plan catalog (server-side source of truth — prevent price tampering)
+const PRICING_PLANS: Record<string, { id: string; name: string; amount: number; description: string }> = {
+  'pro-monthly': { id: 'pro-monthly', name: 'SparkMind Pro (Monthly)', amount: 49000, description: 'SparkMind Pro - 1 bulan langganan' },
+  'pro-yearly': { id: 'pro-yearly', name: 'SparkMind Pro (Yearly)', amount: 470000, description: 'SparkMind Pro - 1 tahun langganan (hemat 20%)' },
+  'team-monthly': { id: 'team-monthly', name: 'SparkMind Team (5 user / bulan)', amount: 745000, description: 'SparkMind Team - 5 user x 1 bulan' },
+  'lifetime': { id: 'lifetime', name: 'SparkMind Lifetime Deal', amount: 1490000, description: 'SparkMind Pro - akses seumur hidup' },
+}
 
 // ============================================
 // ROUTES
@@ -79,11 +162,14 @@ app.get('/api/quotes', (c) => {
 })
 app.get('/api/health', (c) => c.json({
   status: 'ok',
-  service: 'SparkMind V6.0 BULLETPROOF API',
-  version: '6.0.0',
-  engine: 'Sovereign AI Engine V6',
+  service: 'SparkMind V6.1 PAYMENT-READY API',
+  version: '6.1.0',
+  engine: 'Sovereign AI Engine V6.1',
   categories: 18,
+  payment: { provider: 'Duitku', mode: getDuitkuConfig(c).isProd ? 'production' : 'sandbox' },
   features: [
+    'duitku-payment-gateway','duitku-pop-js','sha256-signature','md5-callback-verify',
+    'server-side-pricing-catalog','payment-plans','payment-success-page','payment-failed-page',
     'pwa-installable','service-worker-offline','xss-safe-render','error-boundary',
     'pomodoro-resume-on-tab','storage-quota-guard','onboarding-tour-v6',
     'quick-add-modal','pricing-page','seo-og-tags','copy-share-ai-response',
@@ -93,6 +179,176 @@ app.get('/api/health', (c) => c.json({
     'spiritual-faith','side-hustle','18-categories'
   ]
 }))
+
+// ============================================
+// DUITKU PAYMENT GATEWAY ENDPOINTS
+// Docs: https://docs.duitku.com/pop/en/
+// ============================================
+
+// Public: list available plans (so frontend can render dynamically)
+app.get('/api/payment/plans', (c) => {
+  return c.json({ plans: Object.values(PRICING_PLANS) })
+})
+
+// Create Invoice — backend integration
+// POST /api/payment/create-invoice
+// Body: { planId, email, firstName?, lastName?, phoneNumber? }
+app.post('/api/payment/create-invoice', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const planId = String(body.planId || '').trim()
+    const email = String(body.email || '').trim().toLowerCase()
+    const firstName = String(body.firstName || 'SparkMind').slice(0, 50).trim()
+    const lastName = String(body.lastName || 'User').slice(0, 50).trim()
+    const phoneNumber = String(body.phoneNumber || '08123456789').replace(/[^\d+]/g, '').slice(0, 20)
+
+    // Validate plan
+    const plan = PRICING_PLANS[planId]
+    if (!plan) return c.json({ error: 'Invalid plan ID', validPlans: Object.keys(PRICING_PLANS) }, 400)
+
+    // Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: 'Valid email required' }, 400)
+
+    const cfg = getDuitkuConfig(c)
+    const timestamp = Date.now().toString()
+    const signature = await sha256Hex(cfg.merchantCode + timestamp + cfg.apiKey)
+
+    // Unique order ID
+    const merchantOrderId = `SM${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+
+    const apiUrl = cfg.isProd
+      ? 'https://api-prod.duitku.com/api/merchant/createInvoice'
+      : 'https://api-sandbox.duitku.com/api/merchant/createInvoice'
+
+    const payload = {
+      paymentAmount: plan.amount,
+      merchantOrderId,
+      productDetails: plan.description,
+      additionalParam: planId,
+      merchantUserInfo: email,
+      customerVaName: (firstName + ' ' + lastName).slice(0, 20),
+      email,
+      phoneNumber,
+      itemDetails: [{ name: plan.name, price: plan.amount, quantity: 1 }],
+      customerDetail: {
+        firstName, lastName, email, phoneNumber,
+        billingAddress: { firstName, lastName, address: 'Jakarta', city: 'Jakarta', postalCode: '10000', phone: phoneNumber, countryCode: 'ID' },
+        shippingAddress: { firstName, lastName, address: 'Jakarta', city: 'Jakarta', postalCode: '10000', phone: phoneNumber, countryCode: 'ID' },
+      },
+      callbackUrl: `${cfg.baseUrl}/api/payment/callback`,
+      returnUrl: `${cfg.baseUrl}/payment/return`,
+      expiryPeriod: 60,
+    }
+
+    const resp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-duitku-signature': signature,
+        'x-duitku-timestamp': timestamp,
+        'x-duitku-merchantcode': cfg.merchantCode,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const text = await resp.text()
+    let data: any
+    try { data = JSON.parse(text) } catch { data = { raw: text } }
+
+    if (!resp.ok || data.statusCode !== '00') {
+      return c.json({
+        error: 'Duitku createInvoice failed',
+        httpStatus: resp.status,
+        duitku: data,
+        merchantOrderId,
+      }, 502)
+    }
+
+    return c.json({
+      success: true,
+      merchantOrderId,
+      reference: data.reference,
+      paymentUrl: data.paymentUrl,
+      amount: plan.amount,
+      planId,
+      planName: plan.name,
+      mode: cfg.isProd ? 'production' : 'sandbox',
+    })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message || 'unknown' }, 500)
+  }
+})
+
+// Callback — Duitku notifies merchant about payment status
+// POST /api/payment/callback (x-www-form-urlencoded)
+app.post('/api/payment/callback', async (c) => {
+  try {
+    const cfg = getDuitkuConfig(c)
+    // Parse form data
+    const form = await c.req.parseBody()
+    const merchantCode = String(form.merchantCode || '')
+    const amount = String(form.amount || '')
+    const merchantOrderId = String(form.merchantOrderId || '')
+    const signature = String(form.signature || '')
+    const resultCode = String(form.resultCode || '')
+    const reference = String(form.reference || '')
+
+    if (!merchantCode || !amount || !merchantOrderId || !signature) {
+      return c.text('Bad Parameter', 400)
+    }
+
+    // Verify signature: MD5(merchantCode + amount + merchantOrderId + apiKey)
+    const expected = md5(merchantCode + amount + merchantOrderId + cfg.apiKey)
+    if (signature !== expected) {
+      console.log('[Duitku Callback] Bad signature for order', merchantOrderId)
+      return c.text('Bad Signature', 401)
+    }
+
+    // Signature valid → log + (in production: update DB)
+    console.log('[Duitku Callback] Verified', { merchantOrderId, amount, resultCode, reference })
+
+    // resultCode: 00 = Success, 02 = Failed
+    // In a real app, update DB / activate Pro user here
+
+    return c.text('OK', 200)
+  } catch (e: any) {
+    return c.text('Error: ' + (e?.message || 'unknown'), 500)
+  }
+})
+
+// Check transaction status (server-side polling helper)
+// GET /api/payment/status/:merchantOrderId
+app.get('/api/payment/status/:merchantOrderId', async (c) => {
+  try {
+    const merchantOrderId = c.req.param('merchantOrderId')
+    if (!merchantOrderId) return c.json({ error: 'merchantOrderId required' }, 400)
+
+    const cfg = getDuitkuConfig(c)
+    const signature = md5(cfg.merchantCode + merchantOrderId + cfg.apiKey)
+
+    const apiUrl = cfg.isProd
+      ? 'https://api-prod.duitku.com/api/merchant/transactionStatus'
+      : 'https://api-sandbox.duitku.com/api/merchant/transactionStatus'
+
+    const resp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchantCode: cfg.merchantCode, merchantOrderId, signature }),
+    })
+
+    const text = await resp.text()
+    let data: any
+    try { data = JSON.parse(text) } catch { data = { raw: text } }
+
+    return c.json({ merchantOrderId, duitku: data, mode: cfg.isProd ? 'production' : 'sandbox' })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message || 'unknown' }, 500)
+  }
+})
+
+// Return URL — user redirected here after payment
+app.get('/payment/return', (c) => c.html(PAYMENT_RETURN_HTML))
 
 // 404 fallback
 app.notFound((c) => c.html(`<!DOCTYPE html><html><head><title>404 — SparkMind</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script></head><body class="min-h-screen bg-slate-950 text-white flex items-center justify-center font-sans"><div class="text-center px-6"><div class="text-8xl mb-4">🧠</div><h1 class="text-4xl font-bold mb-3">404</h1><p class="text-gray-400 mb-6">Halaman tidak ditemukan.</p><a href="/" class="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold">← Kembali</a></div></body></html>`, 404))
@@ -699,11 +955,15 @@ const PRICING_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pricing — SparkMind V6.0</title>
-  <meta name="description" content="Pricing SparkMind. Free selamanya, Pro untuk power user, Team untuk organisasi.">
+  <title>Pricing — SparkMind V6.1 (Duitku Powered)</title>
+  <meta name="description" content="Pricing SparkMind. Free selamanya, Pro untuk power user, Team untuk organisasi. Pembayaran aman via Duitku — VA/QRIS/E-wallet/Credit Card.">
+  <meta property="og:title" content="SparkMind Pricing — Sederhana, Adil, Powerful">
+  <meta property="og:description" content="Mulai gratis. Pro Rp 49rb/bln. Bayar via Duitku — semua bank Indonesia, QRIS, OVO, DANA, ShopeePay didukung.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f46e5'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- Duitku Pop JS (sandbox) -->
+  <script src="https://app-sandbox.duitku.com/lib/js/duitku.js"></script>
   <style>
     body{background:#0a0a1a;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
     .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08)}
@@ -711,8 +971,20 @@ const PRICING_HTML = `<!DOCTYPE html>
     .grid-bg{background-image:linear-gradient(rgba(99,102,241,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.06) 1px,transparent 1px);background-size:50px 50px}
     .btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);transition:all .3s}
     .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(99,102,241,.4)}
+    .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
     .featured{position:relative;border-color:rgba(99,102,241,.5)!important;box-shadow:0 0 60px rgba(99,102,241,.25)}
     .featured::before{content:'PALING POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-size:10px;font-weight:bold;padding:4px 12px;border-radius:6px;letter-spacing:.05em}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem}
+    .modal-bg.show{display:flex}
+    .modal-card{background:#1a1a2e;border:1px solid rgba(255,255,255,.1);border-radius:1rem;max-width:440px;width:100%;padding:1.5rem;animation:popIn .25s}
+    @keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+    .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);padding:.75rem 1.25rem;border-radius:.5rem;color:#fff;font-weight:600;font-size:.875rem;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:90%;text-align:center}
+    .toast.success{background:linear-gradient(135deg,#10b981,#059669)}
+    .toast.error{background:linear-gradient(135deg,#ef4444,#dc2626)}
+    .toast.info{background:linear-gradient(135deg,#4f46e5,#6366f1)}
+    input,select{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;padding:.625rem .875rem;border-radius:.5rem;width:100%;font-size:.875rem;outline:none;transition:border .2s}
+    input:focus,select:focus{border-color:#6366f1}
+    .pay-method-icon{display:inline-block;background:rgba(255,255,255,.08);padding:.25rem .5rem;border-radius:.25rem;font-size:.625rem;font-weight:600;margin:.125rem}
   </style>
 </head>
 <body class="min-h-screen relative">
@@ -721,15 +993,27 @@ const PRICING_HTML = `<!DOCTYPE html>
     <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
       <a href="/" class="flex items-center gap-2.5">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white">S</div>
-        <span class="text-base font-bold">SparkMind <span class="text-[10px] text-indigo-400 font-mono">V6.0</span></span>
+        <span class="text-base font-bold">SparkMind <span class="text-[10px] text-indigo-400 font-mono">V6.1</span></span>
       </a>
-      <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Buka App</a>
+      <div class="flex items-center gap-2">
+        <span class="hidden sm:inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/20"><i class="fas fa-shield-alt mr-1"></i>Duitku Sandbox</span>
+        <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Buka App</a>
+      </div>
     </div>
   </nav>
 
-  <section class="relative pt-32 pb-12 px-4 sm:px-6 max-w-6xl mx-auto text-center">
+  <section class="relative pt-28 pb-12 px-4 sm:px-6 max-w-6xl mx-auto text-center">
     <h1 class="text-4xl sm:text-5xl font-black mb-3">Pricing <span class="gradient-text">Sederhana</span></h1>
-    <p class="text-gray-400 text-sm mb-12">Mulai gratis. Upgrade kapan saja. Cancel kapan saja.</p>
+    <p class="text-gray-400 text-sm mb-3">Mulai gratis. Upgrade kapan saja. Cancel kapan saja.</p>
+    <p class="text-xs text-gray-500 mb-10">
+      <i class="fas fa-lock mr-1 text-emerald-400"></i> Bayar aman via Duitku ·
+      <span class="pay-method-icon">VA BCA/Mandiri/BRI/BNI</span>
+      <span class="pay-method-icon">QRIS</span>
+      <span class="pay-method-icon">OVO</span>
+      <span class="pay-method-icon">DANA</span>
+      <span class="pay-method-icon">ShopeePay</span>
+      <span class="pay-method-icon">Credit Card</span>
+    </p>
 
     <div class="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto text-left">
       <!-- FREE -->
@@ -754,8 +1038,13 @@ const PRICING_HTML = `<!DOCTYPE html>
         <p class="text-xs text-indigo-400 uppercase tracking-wider font-bold mb-2">Pro</p>
         <p class="text-4xl font-black text-white mb-1">Rp 49rb<span class="text-base text-gray-500 font-normal">/bln</span></p>
         <p class="text-xs text-gray-500 mb-5">atau Rp 470rb/tahun (hemat 20%)</p>
-        <a href="mailto:hello@sparkmind.app?subject=Pro%20Subscription" class="block w-full text-center py-2.5 btn-primary text-white rounded-lg text-sm font-semibold">Dapatkan Pro</a>
-        <ul class="mt-6 space-y-2.5 text-sm text-gray-300">
+        <button data-plan="pro-monthly" data-amount="49000" class="pay-btn block w-full text-center py-2.5 btn-primary text-white rounded-lg text-sm font-semibold">
+          <i class="fas fa-credit-card mr-1.5"></i> Bayar Rp 49rb/bln
+        </button>
+        <button data-plan="pro-yearly" data-amount="470000" class="pay-btn mt-2 block w-full text-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-semibold border border-indigo-500/30">
+          <i class="fas fa-star mr-1 text-amber-400"></i> Bayar Tahunan (Rp 470rb)
+        </button>
+        <ul class="mt-5 space-y-2.5 text-sm text-gray-300">
           <li class="flex gap-2"><i class="fas fa-check text-emerald-400 mt-1"></i> <b>Semua di Sovereign</b></li>
           <li class="flex gap-2"><i class="fas fa-bolt text-amber-400 mt-1"></i> Real LLM (GPT-4 / Claude)</li>
           <li class="flex gap-2"><i class="fas fa-cloud text-cyan-400 mt-1"></i> Cloud sync multi-device</li>
@@ -769,9 +1058,11 @@ const PRICING_HTML = `<!DOCTYPE html>
       <!-- TEAM -->
       <div class="glass rounded-2xl p-6">
         <p class="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2">Team</p>
-        <p class="text-4xl font-black text-white mb-1">Rp 149rb<span class="text-base text-gray-500 font-normal">/user/bln</span></p>
-        <p class="text-xs text-gray-500 mb-5">Min 5 user. Diskon volume tersedia.</p>
-        <a href="mailto:hello@sparkmind.app?subject=Team%20Plan" class="block w-full text-center py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-semibold transition">Hubungi Sales</a>
+        <p class="text-4xl font-black text-white mb-1">Rp 745rb<span class="text-base text-gray-500 font-normal">/5user/bln</span></p>
+        <p class="text-xs text-gray-500 mb-5">Rp 149rb/user. Diskon volume 10+.</p>
+        <button data-plan="team-monthly" data-amount="745000" class="pay-btn block w-full text-center py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-semibold transition border border-white/10">
+          <i class="fas fa-users mr-1.5"></i> Bayar Rp 745rb/bln
+        </button>
         <ul class="mt-6 space-y-2.5 text-sm text-gray-300">
           <li class="flex gap-2"><i class="fas fa-check text-emerald-400 mt-1"></i> <b>Semua di Pro</b></li>
           <li class="flex gap-2"><i class="fas fa-users text-sky-400 mt-1"></i> Workspace tim &amp; sharing</li>
@@ -783,11 +1074,325 @@ const PRICING_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="mt-12 text-xs text-gray-500">
-      <p>💎 Pro &amp; Team coming soon — daftar email untuk early access &amp; lifetime deal.</p>
+    <!-- Lifetime Deal Banner -->
+    <div class="mt-8 max-w-3xl mx-auto glass rounded-2xl p-5 border-amber-500/30 text-left flex flex-col sm:flex-row items-center gap-4">
+      <div class="text-3xl"><i class="fas fa-infinity text-amber-400"></i></div>
+      <div class="flex-1">
+        <p class="font-bold text-white">Lifetime Deal — <span class="text-amber-400">Rp 1.490.000</span> <span class="text-xs text-gray-500 line-through ml-2">Rp 5.880.000</span></p>
+        <p class="text-xs text-gray-400 mt-0.5">Bayar sekali, akses Pro selamanya. Limited 100 slot pertama.</p>
+      </div>
+      <button data-plan="lifetime" data-amount="1490000" class="pay-btn px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg text-sm whitespace-nowrap">
+        Klaim Lifetime <i class="fas fa-arrow-right ml-1"></i>
+      </button>
+    </div>
+
+    <div class="mt-10 text-xs text-gray-500">
+      <p><i class="fas fa-shield-alt text-emerald-400"></i> Secured by <b>Duitku</b> — Bank Indonesia licensed payment gateway</p>
       <p class="mt-2">📧 hello@sparkmind.app · 🇮🇩 Made with love in Indonesia</p>
     </div>
   </section>
+
+  <!-- Payment Modal -->
+  <div id="pay-modal" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="pay-title" class="text-lg font-bold text-white">Checkout</h3>
+        <button id="pay-close" aria-label="Close" class="text-gray-400 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+      </div>
+      <div id="pay-summary" class="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-sm">
+        <div class="flex justify-between"><span class="text-gray-300" id="pay-plan-name">Plan</span><span class="font-bold text-white" id="pay-plan-amount">Rp 0</span></div>
+        <p class="text-xs text-gray-400 mt-1" id="pay-plan-desc"></p>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Email <span class="text-rose-400">*</span></label>
+          <input id="pay-email" type="email" placeholder="email@anda.com" required>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Nama Depan</label>
+            <input id="pay-firstname" type="text" placeholder="Budi" maxlength="50">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Nama Belakang</label>
+            <input id="pay-lastname" type="text" placeholder="Santoso" maxlength="50">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">No. HP (opsional)</label>
+          <input id="pay-phone" type="tel" placeholder="08123456789" maxlength="20">
+        </div>
+      </div>
+      <button id="pay-submit" class="mt-5 w-full py-3 btn-primary text-white font-bold rounded-lg">
+        <span id="pay-submit-text"><i class="fas fa-lock mr-1.5"></i> Lanjut Bayar</span>
+      </button>
+      <p class="text-[10px] text-gray-500 text-center mt-3">
+        <i class="fas fa-shield-alt"></i> Pembayaran aman via Duitku (Sandbox).
+        Anda akan diarahkan ke halaman pembayaran Duitku.
+      </p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+    (function(){
+      'use strict';
+      var modal = document.getElementById('pay-modal');
+      var closeBtn = document.getElementById('pay-close');
+      var submitBtn = document.getElementById('pay-submit');
+      var submitText = document.getElementById('pay-submit-text');
+      var toastEl = document.getElementById('toast');
+      var currentPlan = null;
+
+      function fmtRp(n){ return 'Rp ' + Number(n).toLocaleString('id-ID'); }
+      function toast(msg, type){
+        type = type || 'info';
+        toastEl.className = 'toast ' + type;
+        toastEl.textContent = msg;
+        toastEl.style.display = 'block';
+        setTimeout(function(){ toastEl.style.display = 'none'; }, 4000);
+      }
+
+      function openModal(planId, amount, label){
+        currentPlan = planId;
+        document.getElementById('pay-plan-name').textContent = label || planId;
+        document.getElementById('pay-plan-amount').textContent = fmtRp(amount);
+        document.getElementById('pay-plan-desc').textContent = 'Akses langsung setelah pembayaran berhasil. Refund 7 hari.';
+        // Restore email from localStorage if any
+        try { document.getElementById('pay-email').value = localStorage.getItem('sm_email') || ''; } catch(e){}
+        modal.classList.add('show');
+        setTimeout(function(){ document.getElementById('pay-email').focus(); }, 100);
+      }
+      function closeModal(){ modal.classList.remove('show'); }
+
+      // Bind pay buttons
+      document.querySelectorAll('.pay-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var plan = btn.getAttribute('data-plan');
+          var amount = parseInt(btn.getAttribute('data-amount'), 10);
+          var label = btn.textContent.trim();
+          openModal(plan, amount, label);
+        });
+      });
+      closeBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+
+      // Submit
+      submitBtn.addEventListener('click', function(){
+        var email = document.getElementById('pay-email').value.trim();
+        var firstName = document.getElementById('pay-firstname').value.trim();
+        var lastName = document.getElementById('pay-lastname').value.trim();
+        var phone = document.getElementById('pay-phone').value.trim();
+
+        if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+          toast('Email tidak valid', 'error');
+          return;
+        }
+        try { localStorage.setItem('sm_email', email); } catch(e){}
+
+        submitBtn.disabled = true;
+        submitText.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Memproses...';
+
+        fetch('/api/payment/create-invoice', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ planId: currentPlan, email: email, firstName: firstName || 'SparkMind', lastName: lastName || 'User', phoneNumber: phone || '08123456789' })
+        })
+        .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+        .then(function(res){
+          if (!res.ok || !res.data.success) {
+            console.error('Create invoice error:', res.data);
+            var msg = res.data.error || 'Gagal buat invoice';
+            if (res.data.duitku && res.data.duitku.statusMessage) msg += ' — ' + res.data.duitku.statusMessage;
+            toast(msg, 'error');
+            submitBtn.disabled = false;
+            submitText.innerHTML = '<i class="fas fa-lock mr-1.5"></i> Lanjut Bayar';
+            return;
+          }
+
+          // Save order locally for tracking
+          try {
+            localStorage.setItem('sm_last_order', JSON.stringify({
+              merchantOrderId: res.data.merchantOrderId,
+              reference: res.data.reference,
+              amount: res.data.amount,
+              planId: res.data.planId,
+              createdAt: Date.now(),
+            }));
+          } catch(e){}
+
+          toast('Invoice dibuat. Membuka Duitku...', 'success');
+
+          // Try Duitku Pop JS first (preferred — popup overlay)
+          if (typeof window.checkout !== 'undefined' && typeof window.checkout.process === 'function') {
+            window.checkout.process(res.data.reference, {
+              defaultLanguage: 'id',
+              successEvent: function(result){
+                console.log('[Duitku] success', result);
+                window.location.href = '/payment/return?merchantOrderId=' + encodeURIComponent(res.data.merchantOrderId) + '&resultCode=00&reference=' + encodeURIComponent(res.data.reference);
+              },
+              pendingEvent: function(result){
+                console.log('[Duitku] pending', result);
+                window.location.href = '/payment/return?merchantOrderId=' + encodeURIComponent(res.data.merchantOrderId) + '&resultCode=01&reference=' + encodeURIComponent(res.data.reference);
+              },
+              errorEvent: function(result){
+                console.log('[Duitku] error', result);
+                toast('Pembayaran gagal: ' + (result && result.message ? result.message : 'unknown error'), 'error');
+                submitBtn.disabled = false;
+                submitText.innerHTML = '<i class="fas fa-lock mr-1.5"></i> Lanjut Bayar';
+              },
+              closeEvent: function(result){
+                console.log('[Duitku] closed', result);
+                toast('Popup ditutup. Order tetap aktif 60 menit.', 'info');
+                submitBtn.disabled = false;
+                submitText.innerHTML = '<i class="fas fa-lock mr-1.5"></i> Lanjut Bayar';
+              },
+            });
+          } else {
+            // Fallback: direct redirect to Duitku payment URL
+            console.warn('[Duitku] Pop JS not loaded, falling back to redirect');
+            window.location.href = res.data.paymentUrl;
+          }
+        })
+        .catch(function(err){
+          console.error('Network error:', err);
+          toast('Gagal koneksi ke server. Coba lagi.', 'error');
+          submitBtn.disabled = false;
+          submitText.innerHTML = '<i class="fas fa-lock mr-1.5"></i> Lanjut Bayar';
+        });
+      });
+
+      // Auto-detect Duitku JS load
+      window.addEventListener('load', function(){
+        if (typeof window.checkout === 'undefined') {
+          console.warn('[SparkMind] Duitku Pop JS belum loaded — akan fallback ke redirect.');
+        } else {
+          console.log('[SparkMind] Duitku Pop JS ready');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>`
+
+// ============================================
+// PAYMENT RETURN PAGE
+// ============================================
+const PAYMENT_RETURN_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Status Pembayaran — SparkMind</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f46e5'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body{background:#0a0a1a;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+    .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08)}
+    .pulse{animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+    .check-anim{animation:checkPop .5s cubic-bezier(0.68, -0.55, 0.27, 1.55)}
+    @keyframes checkPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+  </style>
+</head>
+<body>
+  <main class="glass rounded-2xl p-8 max-w-md w-full text-center">
+    <div id="status-icon" class="text-6xl mb-4 pulse"><i class="fas fa-spinner fa-spin text-indigo-400"></i></div>
+    <h1 id="status-title" class="text-2xl font-black mb-2">Mengecek Status...</h1>
+    <p id="status-msg" class="text-sm text-gray-400 mb-6">Mohon tunggu, kami sedang verifikasi pembayaran Anda.</p>
+    <div id="order-info" class="text-xs text-gray-500 mb-6 p-3 bg-white/5 rounded-lg" style="display:none"></div>
+    <div class="space-y-2">
+      <a href="/app" class="block w-full py-2.5 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-semibold rounded-lg hover:opacity-90">
+        <i class="fas fa-rocket mr-1.5"></i> Buka SparkMind
+      </a>
+      <a href="/pricing" class="block w-full py-2.5 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-lg text-sm transition">
+        Kembali ke Pricing
+      </a>
+    </div>
+    <p class="text-[10px] text-gray-600 mt-5">
+      <i class="fas fa-shield-alt text-emerald-400"></i> Powered by Duitku ·
+      <a href="mailto:hello@sparkmind.app" class="hover:text-gray-400">Butuh bantuan?</a>
+    </p>
+  </main>
+  <script>
+    (function(){
+      var qs = new URLSearchParams(window.location.search);
+      var code = qs.get('resultCode') || '';
+      var orderId = qs.get('merchantOrderId') || '';
+      var ref = qs.get('reference') || '';
+
+      var icon = document.getElementById('status-icon');
+      var title = document.getElementById('status-title');
+      var msg = document.getElementById('status-msg');
+      var info = document.getElementById('order-info');
+
+      function render(state){
+        if (state === 'success'){
+          icon.className = 'text-6xl mb-4 check-anim';
+          icon.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i>';
+          title.textContent = 'Pembayaran Berhasil! 🎉';
+          title.className = 'text-2xl font-black mb-2 text-emerald-400';
+          msg.textContent = 'Terima kasih! Akun Pro Anda akan aktif dalam beberapa menit. Cek email untuk konfirmasi.';
+          try {
+            var last = JSON.parse(localStorage.getItem('sm_last_order') || '{}');
+            last.status = 'paid'; last.paidAt = Date.now();
+            localStorage.setItem('sm_last_order', JSON.stringify(last));
+            localStorage.setItem('sm_pro_active', '1');
+          } catch(e){}
+        } else if (state === 'pending'){
+          icon.innerHTML = '<i class="fas fa-clock text-amber-400"></i>';
+          icon.className = 'text-6xl mb-4 pulse';
+          title.textContent = 'Pembayaran Pending';
+          title.className = 'text-2xl font-black mb-2 text-amber-400';
+          msg.textContent = 'Pembayaran sedang diproses. Cek email atau halaman ini lagi nanti.';
+        } else if (state === 'failed'){
+          icon.innerHTML = '<i class="fas fa-times-circle text-rose-400"></i>';
+          icon.className = 'text-6xl mb-4';
+          title.textContent = 'Pembayaran Dibatalkan';
+          title.className = 'text-2xl font-black mb-2 text-rose-400';
+          msg.textContent = 'Transaksi tidak diselesaikan. Silakan coba lagi kalau perlu.';
+        } else {
+          icon.innerHTML = '<i class="fas fa-question-circle text-gray-400"></i>';
+          icon.className = 'text-6xl mb-4';
+          title.textContent = 'Status Tidak Diketahui';
+          title.className = 'text-2xl font-black mb-2';
+          msg.textContent = 'Tidak ada parameter status. Silakan kembali ke pricing.';
+        }
+        if (orderId || ref){
+          info.style.display = 'block';
+          info.innerHTML = '<div class="text-left">' +
+            (orderId ? '<div><span class="text-gray-500">Order ID:</span> <code class="text-white">' + orderId.replace(/[<>]/g,'') + '</code></div>' : '') +
+            (ref ? '<div class="mt-1"><span class="text-gray-500">Reference:</span> <code class="text-white">' + ref.replace(/[<>]/g,'') + '</code></div>' : '') +
+            '</div>';
+        }
+      }
+
+      // Map Duitku resultCode
+      // 00 = Success, 01 = Pending/Process, 02 = Failed/Cancelled
+      if (code === '00') render('success');
+      else if (code === '01') render('pending');
+      else if (code === '02') render('failed');
+      else if (orderId) {
+        // No code but has order — poll status from server
+        fetch('/api/payment/status/' + encodeURIComponent(orderId))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var rc = d && d.duitku && d.duitku.statusCode;
+            if (rc === '00') render('success');
+            else if (rc === '01') render('pending');
+            else if (rc === '02') render('failed');
+            else render('unknown');
+          })
+          .catch(function(){ render('unknown'); });
+      } else {
+        render('unknown');
+      }
+    })();
+  </script>
 </body>
 </html>`
 
