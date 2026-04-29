@@ -10,9 +10,17 @@
 - **Clarity & Recovery Coach**: https://sparkmind-v2.pages.dev/clarity
 - **Pricing & Pay**: https://sparkmind-v2.pages.dev/pricing
 - **App (Dashboard)**: https://sparkmind-v2.pages.dev/app
-- **Latest Deploy**: https://f5d805c9.sparkmind-v2.pages.dev
+- **Latest Deploy**: https://4d7cd902.sparkmind-v2.pages.dev
 - **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.0`)
+- **Master Session Architect Prompt (handoff)**: `docs/MASTER_SESSION_ARCHITECT_PROMPT.md`
 - **Duitku Docs**: https://docs.duitku.com/pop/en/
+
+## 🛡️ V7.0 Hardening (Opsi C — Done)
+- ✅ **Cloudflare Pages `production_branch = main`** set explicitly via Cloudflare API (`PATCH /pages/projects/sparkmind-v2`)
+- ✅ Every commit to `main` → auto-deploy to `sparkmind-v2.pages.dev` (no more orphan preview hashes)
+- ✅ Git tag `v7.0` pushed to remote as version mark
+- ✅ Latest production deploy verified: main domain returns 200, `/api/health` confirms V7.0 CLARITY EDITION
+- ✅ Master Session Architect Prompt created at `docs/MASTER_SESSION_ARCHITECT_PROMPT.md` (full handoff doc for next session)
 
 ## 🩹 Root-Cause Fix (V6.x → V7.0)
 Sebelum V7.0, domain utama (`sparkmind-v2.pages.dev`) menampilkan versi lama padahal preview hash punya feature baru. Akar masalah:
