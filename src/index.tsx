@@ -15,6 +15,13 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
 
 // ============================================
+// CANONICAL PUBLIC URL (FIX: stable callback/return for Duitku)
+// Hardcoded fallback ensures Duitku callbacks ALWAYS hit the main domain,
+// not ephemeral preview hashes. Override via wrangler pages secret put PUBLIC_BASE_URL.
+// ============================================
+const CANONICAL_BASE_URL = 'https://sparkmind-v2.pages.dev'
+
+// ============================================
 // DUITKU CONFIG (fallback for sandbox dev)
 // In production, set these via wrangler pages secret put
 // ============================================
@@ -26,12 +33,26 @@ const DUITKU_DEFAULT = {
 
 function getDuitkuConfig(c: any) {
   const env = c.env || {}
+  const baseUrl = env.PUBLIC_BASE_URL || CANONICAL_BASE_URL || new URL(c.req.url).origin
   return {
     apiKey: env.DUITKU_API_KEY || DUITKU_DEFAULT.apiKey,
     merchantCode: env.DUITKU_MERCHANT_CODE || DUITKU_DEFAULT.merchantCode,
     isProd: (env.DUITKU_ENV || DUITKU_DEFAULT.env) === 'production',
-    baseUrl: env.PUBLIC_BASE_URL || new URL(c.req.url).origin,
+    baseUrl,
   }
+}
+
+// Cache-control middleware for HTML routes — bust CDN cache so users always
+// see latest deployment on main domain (FIX for stale main domain).
+function noCacheHTML(c: any) {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+  c.header('Pragma', 'no-cache')
+  c.header('Expires', '0')
+}
+
+// HTML escape utility (XSS-safe)
+function escClarity(s: string): string {
+  return String(s || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch] as string))
 }
 
 // SHA256 using Web Crypto API (Cloudflare Workers compatible)
@@ -80,19 +101,28 @@ function md5(s: string): string {
 }
 
 // Pricing plan catalog (server-side source of truth — prevent price tampering)
-const PRICING_PLANS: Record<string, { id: string; name: string; amount: number; description: string }> = {
-  'pro-monthly': { id: 'pro-monthly', name: 'SparkMind Pro (Monthly)', amount: 49000, description: 'SparkMind Pro - 1 bulan langganan' },
-  'pro-yearly': { id: 'pro-yearly', name: 'SparkMind Pro (Yearly)', amount: 470000, description: 'SparkMind Pro - 1 tahun langganan (hemat 20%)' },
-  'team-monthly': { id: 'team-monthly', name: 'SparkMind Team (5 user / bulan)', amount: 745000, description: 'SparkMind Team - 5 user x 1 bulan' },
-  'lifetime': { id: 'lifetime', name: 'SparkMind Lifetime Deal', amount: 1490000, description: 'SparkMind Pro - akses seumur hidup' },
+const PRICING_PLANS: Record<string, { id: string; name: string; amount: number; description: string; category: 'core' | 'painkiller' }> = {
+  // Core SparkMind plans
+  'pro-monthly':   { id: 'pro-monthly',   name: 'SparkMind Pro (Monthly)',          amount: 49000,   description: 'SparkMind Pro - 1 bulan langganan',                           category: 'core' },
+  'pro-yearly':    { id: 'pro-yearly',    name: 'SparkMind Pro (Yearly)',           amount: 470000,  description: 'SparkMind Pro - 1 tahun langganan (hemat 20%)',              category: 'core' },
+  'team-monthly':  { id: 'team-monthly',  name: 'SparkMind Team (5 user / bulan)',  amount: 745000,  description: 'SparkMind Team - 5 user x 1 bulan',                           category: 'core' },
+  'lifetime':      { id: 'lifetime',      name: 'SparkMind Lifetime Deal',          amount: 1490000, description: 'SparkMind Pro - akses seumur hidup',                          category: 'core' },
+  // Painkiller — AI Clarity & Recovery Coach (V7.0)
+  'clarity-monthly':        { id: 'clarity-monthly',        name: 'AI Clarity Coach (Monthly)',      amount: 59000,  description: 'AI Clarity & Recovery Coach - akses bulanan (Situation Decoder + Draft Review + Boundary Checker)', category: 'painkiller' },
+  'clarity-yearly':         { id: 'clarity-yearly',         name: 'AI Clarity Coach (Yearly)',       amount: 399000, description: 'AI Clarity & Recovery Coach - 1 tahun (hemat 44%)',           category: 'painkiller' },
+  'pack-after-block':       { id: 'pack-after-block',       name: '"After Block" Recovery Pack',     amount: 39000,  description: 'Pack lifetime - Recovery Plan 30 hari setelah diblokir/ghosting', category: 'painkiller' },
+  'pack-stop-overthinking': { id: 'pack-stop-overthinking', name: '"Stop Overthinking" 21-Day Pack', amount: 29000,  description: 'Pack lifetime - 21 hari plan keluar dari overthinking',        category: 'painkiller' },
+  'pack-mature-comm':       { id: 'pack-mature-comm',       name: '"Mature Communication" Pack',     amount: 49000,  description: 'Pack lifetime - template & analyzer komunikasi dewasa',         category: 'painkiller' },
+  'pack-healthy-closure':   { id: 'pack-healthy-closure',   name: '"Healthy Closure" Pack',          amount: 39000,  description: 'Pack lifetime - protokol closure sehat tanpa drama',            category: 'painkiller' },
 }
 
 // ============================================
 // ROUTES
 // ============================================
-app.get('/', (c) => c.html(LANDING_HTML))
-app.get('/app', (c) => c.html(APP_HTML))
-app.get('/pricing', (c) => c.html(PRICING_HTML))
+app.get('/', (c) => { noCacheHTML(c); return c.html(LANDING_HTML) })
+app.get('/app', (c) => { noCacheHTML(c); return c.html(APP_HTML) })
+app.get('/pricing', (c) => { noCacheHTML(c); return c.html(PRICING_HTML) })
+app.get('/clarity', (c) => { noCacheHTML(c); return c.html(CLARITY_HTML) })
 app.get('/manifest.webmanifest', (c) => {
   c.header('Content-Type', 'application/manifest+json')
   return c.body(JSON.stringify({
@@ -160,25 +190,147 @@ app.get('/api/quotes', (c) => {
   const q = QUOTES_DATA[Math.floor(Math.random() * QUOTES_DATA.length)]
   return c.json(q)
 })
-app.get('/api/health', (c) => c.json({
-  status: 'ok',
-  service: 'SparkMind V6.1 PAYMENT-READY API',
-  version: '6.1.0',
-  engine: 'Sovereign AI Engine V6.1',
-  categories: 18,
-  payment: { provider: 'Duitku', mode: getDuitkuConfig(c).isProd ? 'production' : 'sandbox' },
-  features: [
-    'duitku-payment-gateway','duitku-pop-js','sha256-signature','md5-callback-verify',
-    'server-side-pricing-catalog','payment-plans','payment-success-page','payment-failed-page',
-    'pwa-installable','service-worker-offline','xss-safe-render','error-boundary',
-    'pomodoro-resume-on-tab','storage-quota-guard','onboarding-tour-v6',
-    'quick-add-modal','pricing-page','seo-og-tags','copy-share-ai-response',
-    'habit-heatmap-30d','density-toggle','reduced-motion-respect',
-    'chat-memory-persist','mobile-sidebar-fix','backup-restore-json',
-    'weekly-trend-chart','smart-delete-modal','debounced-search','keyboard-shortcuts',
-    'spiritual-faith','side-hustle','18-categories'
-  ]
-}))
+app.get('/api/health', (c) => {
+  const cfg = getDuitkuConfig(c)
+  return c.json({
+    status: 'ok',
+    service: 'SparkMind V7.0 CLARITY EDITION API',
+    version: '7.0.0',
+    engine: 'Sovereign AI Engine V7.0 + Clarity & Recovery Coach',
+    categories: 19,
+    payment: {
+      provider: 'Duitku',
+      mode: cfg.isProd ? 'production' : 'sandbox',
+      baseUrl: cfg.baseUrl,
+      callbackUrl: `${cfg.baseUrl}/api/payment/callback`,
+      returnUrl: `${cfg.baseUrl}/payment/return`,
+      plans: Object.keys(PRICING_PLANS).length,
+    },
+    modules: {
+      core: ['ai-coach','swot','pomodoro','journal','goals','habits','vision','review','resources'],
+      painkiller: ['situation-decoder','draft-tone-review','boundary-checker','recovery-plan','relationship-swot','decision-mode'],
+    },
+    features: [
+      'duitku-payment-gateway','duitku-pop-js','sha256-signature','md5-callback-verify',
+      'server-side-pricing-catalog','payment-plans','payment-success-page','payment-failed-page',
+      'canonical-base-url','no-cache-html','auto-resolve-callback-url',
+      'clarity-recovery-coach','pain-killer-mode',
+      'situation-decoder','draft-tone-review','boundary-checker','recovery-plan-30d',
+      'relationship-swot','decision-mode','crisis-detector','probability-language',
+      'pwa-installable','service-worker-offline','xss-safe-render','error-boundary',
+      'pomodoro-resume-on-tab','storage-quota-guard','onboarding-tour-v6',
+      'quick-add-modal','pricing-page','seo-og-tags','copy-share-ai-response',
+      'habit-heatmap-30d','density-toggle','reduced-motion-respect',
+      'chat-memory-persist','mobile-sidebar-fix','backup-restore-json',
+      'weekly-trend-chart','smart-delete-modal','debounced-search','keyboard-shortcuts',
+      'spiritual-faith','side-hustle','19-categories'
+    ]
+  })
+})
+
+// ============================================
+// AI CLARITY & RECOVERY COACH — PAINKILLER MODULE (V7.0)
+// Etis: probability-language, NO manipulation, boundary-first, crisis-aware
+// ============================================
+const CRISIS_KEYWORDS = /\b(bunuh diri|self harm|menyakiti diri|self-?harm|suicide|nggak mau hidup|gak mau hidup|tidak ingin hidup|akhiri hidup|akhiri saja|menyerah hidup|ingin mati|pengen mati)\b/i
+function crisisCheck(text: string): { crisis: boolean; message?: string } {
+  if (CRISIS_KEYWORDS.test(text)) {
+    return {
+      crisis: true,
+      message: 'Saya membaca ada tanda kamu sedang sangat berat. Yang kamu rasakan valid. Tolong hubungi layanan profesional sekarang: <b>Into the Light Indonesia 119 ext 8</b> (24/7 gratis) atau <b>Yayasan Pulih</b>. Kamu tidak sendirian. ❤️',
+    }
+  }
+  return { crisis: false }
+}
+
+const BLOCKED_KEYWORDS = /\b(diblokir|di-?block|diblock|block aku|mute aku|di-?mute|nggak balas|gak balas|no contact|silent treatment|hilang|ghost(ing)?)\b/i
+function detectBoundary(text: string): boolean {
+  return BLOCKED_KEYWORDS.test(text)
+}
+
+// FITUR 1: Situation Decoder
+app.post('/api/clarity/decode', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const story = String(body.story || body.input || '').slice(0, 2000).trim()
+    if (!story) return c.json({ error: 'story required' }, 400)
+    const crisis = crisisCheck(story)
+    const blocked = detectBoundary(story)
+    const html = renderSituationDecode(story, blocked, crisis)
+    return c.json({ ok: true, blocked, crisis: crisis.crisis, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
+
+// FITUR 2: Chat & WA Draft Review (Tone Analyzer)
+app.post('/api/clarity/draft-review', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const draft = String(body.draft || body.input || '').slice(0, 2000).trim()
+    if (!draft) return c.json({ error: 'draft required' }, 400)
+    const scores = analyzeTone(draft)
+    const verdict = decideVerdict(scores)
+    const html = renderDraftReview(draft, scores, verdict)
+    return c.json({ ok: true, scores, verdict, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
+
+// FITUR 3: Boundary Checker
+app.post('/api/clarity/boundary', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const story = String(body.story || body.input || '').slice(0, 2000).trim()
+    if (!story) return c.json({ error: 'story required' }, 400)
+    const blocked = detectBoundary(story)
+    const crisis = crisisCheck(story)
+    const html = renderBoundaryChecker(story, blocked, crisis)
+    return c.json({ ok: true, blocked, crisis: crisis.crisis, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
+
+// FITUR 4: Recovery Plan (7/21/30 day)
+app.post('/api/clarity/recovery-plan', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const days = Math.min(30, Math.max(7, parseInt(String(body.days || '30'), 10) || 30))
+    const context = String(body.context || body.input || '').slice(0, 500).trim()
+    const html = renderRecoveryPlan(days, context)
+    return c.json({ ok: true, days, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
+
+// FITUR 5: Decision Mode
+app.post('/api/clarity/decision', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const story = String(body.story || body.input || '').slice(0, 2000).trim()
+    if (!story) return c.json({ error: 'story required' }, 400)
+    const html = renderDecisionMode(story)
+    return c.json({ ok: true, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
+
+// FITUR 6: Relationship SWOT
+app.post('/api/clarity/relationship-swot', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const context = String(body.context || body.input || '').slice(0, 500).trim()
+    if (!context) return c.json({ error: 'context required' }, 400)
+    const html = renderRelationshipSWOT(context)
+    return c.json({ ok: true, html, timestamp: new Date().toISOString() })
+  } catch (e: any) {
+    return c.json({ error: 'Server error', detail: e?.message }, 500)
+  }
+})
 
 // ============================================
 // DUITKU PAYMENT GATEWAY ENDPOINTS
@@ -348,7 +500,7 @@ app.get('/api/payment/status/:merchantOrderId', async (c) => {
 })
 
 // Return URL — user redirected here after payment
-app.get('/payment/return', (c) => c.html(PAYMENT_RETURN_HTML))
+app.get('/payment/return', (c) => { noCacheHTML(c); return c.html(PAYMENT_RETURN_HTML) })
 
 // 404 fallback
 app.notFound((c) => c.html(`<!DOCTYPE html><html><head><title>404 — SparkMind</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script></head><body class="min-h-screen bg-slate-950 text-white flex items-center justify-center font-sans"><div class="text-center px-6"><div class="text-8xl mb-4">🧠</div><h1 class="text-4xl font-bold mb-3">404</h1><p class="text-gray-400 mb-6">Halaman tidak ditemukan.</p><a href="/" class="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold">← Kembali</a></div></body></html>`, 404))
@@ -2586,6 +2738,461 @@ const APP_HTML = `<!DOCTYPE html>
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 
   })(); // end IIFE
+  </script>
+</body>
+</html>`
+
+// ============================================
+// AI CLARITY & RECOVERY COACH — RENDERING ENGINE (V7.0)
+// Etika: probability language, no manipulation, boundary-first
+// ============================================
+
+function analyzeTone(draft: string): { needy: number; emotional: number; pressure: number; length: number } {
+  const t = draft.toLowerCase()
+  const needyHits = (t.match(/\b(plis|please|tolong|aku|kamu|kangen|rindu|sayang|maaf|maafin|please reply|please balas|jawab dong|kenapa diem|kenapa ga balas|knp|kok diem)\b/g) || []).length
+  const exclam = (t.match(/!/g) || []).length
+  const dots = (t.match(/\.{3,}/g) || []).length
+  const emo = (t.match(/\b(gak bisa|nggak bisa|hancur|sakit|sepi|sedih|nangis|kecewa|takut|cemas|panik)\b/g) || []).length
+  const pressureWords = (t.match(/\b(harus|wajib|cepat|sekarang juga|jangan diem|kenapa nggak|kenapa gak|jangan begini|aku capek nunggu)\b/g) || []).length
+  const longRatio = Math.min(10, Math.round(draft.length / 80))
+  return {
+    needy: Math.min(10, needyHits + exclam * 0.5 + dots * 0.5),
+    emotional: Math.min(10, emo * 1.5 + exclam * 0.4),
+    pressure: Math.min(10, pressureWords * 1.5),
+    length: longRatio,
+  }
+}
+
+function decideVerdict(s: { needy: number; emotional: number; pressure: number; length: number }): { label: string; color: string; reason: string } {
+  const total = s.needy + s.emotional + s.pressure
+  if (total >= 14 || s.pressure >= 6) return { label: 'JANGAN KIRIM', color: 'red', reason: 'Tone-nya terlalu menekan/emosional. Tunggu 24 jam, lalu re-evaluasi.' }
+  if (total >= 8 || s.needy >= 5) return { label: 'REVISI DULU', color: 'amber', reason: 'Masih terasa needy/intens. Bisa lebih dewasa & terukur.' }
+  if (total <= 4 && s.length <= 6) return { label: 'BOLEH KIRIM', color: 'emerald', reason: 'Tone aman & proporsional. Tetap pertimbangkan timing.' }
+  return { label: 'REVISI RINGAN', color: 'cyan', reason: 'Hampir oke — pendekkan & turunkan intensitas sedikit.' }
+}
+
+function renderCrisisBanner(c: { crisis: boolean; message?: string }): string {
+  if (!c.crisis) return ''
+  return `<div class="bg-rose-500/10 border border-rose-500/40 rounded-xl p-4 mb-3">
+    <p class="text-[10px] font-bold uppercase tracking-wider text-rose-300 mb-2">⚠️ CRISIS DETECTED — PRIORITAS KESELAMATAN</p>
+    <p class="text-sm text-gray-100 leading-relaxed">${c.message}</p>
+  </div>`
+}
+
+function renderSituationDecode(story: string, blocked: boolean, crisis: { crisis: boolean; message?: string }): string {
+  const safe = escClarity(story)
+  const blockedBlock = blocked ? `
+    <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+      <p class="text-[10px] font-bold uppercase tracking-wider text-red-300 mb-2">🚧 BOUNDARY DETECTED — MODE: NO-CONTACT</p>
+      <p class="text-sm text-gray-200 leading-relaxed">Sistem mendeteksi indikasi kamu sudah <b>diblokir / di-mute / ghosting</b>. Mode no-contact aktif: <b>jangan hubungi via cara lain</b>. Hormati batasan. Fokus pada Recovery Plan.</p>
+    </div>` : ''
+  return `<div class="space-y-4">
+    ${renderCrisisBanner(crisis)}
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-violet-500/15 text-violet-300 text-[10px] rounded-full border border-violet-500/30 font-bold uppercase tracking-wider">Situation Decoder</span></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-[10px] text-gray-500 uppercase mb-1">Cerita Kamu</p><p class="text-sm text-gray-200">"${safe}"</p></div>
+    ${blockedBlock}
+    <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-cyan-300 font-bold uppercase mb-2">📊 Pembacaan (Probabilistik)</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• <b>~50%</b> kemungkinan dia butuh ruang/sibuk — bukan tentang kamu</li>
+        <li>• <b>~25%</b> kemungkinan ada masalah komunikasi yang belum dibahas</li>
+        <li>• <b>~25%</b> kemungkinan dia memang menarik diri secara aktif</li>
+      </ul>
+      <p class="text-[10px] text-gray-500 italic mt-2">Probabilitas, bukan kepastian. Hanya dia yang tahu pasti.</p>
+    </div>
+    <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-emerald-300 font-bold uppercase mb-2">🎯 Action Plan Etis</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• <b>24-72 jam:</b> beri ruang. Jangan double-text atau cek profilnya berulang</li>
+        <li>• <b>Refleksi:</b> apa yang sebenarnya kamu butuhkan dari dia?</li>
+        <li>• <b>Kalau perlu:</b> 1 pesan singkat dewasa, tanpa tuntutan, tanpa emosi</li>
+        <li>• <b>Bukan:</b> kejar, manipulasi, atau "test" dengan story sosmed</li>
+      </ul>
+    </div>
+    <div class="text-[10px] text-gray-500 italic">⚠️ AI bantu refleksi, bukan baca pikiran orang. Keputusan tetap di kamu.</div>
+  </div>`
+}
+
+function renderDraftReview(draft: string, scores: { needy: number; emotional: number; pressure: number; length: number }, verdict: { label: string; color: string; reason: string }): string {
+  const safe = escClarity(draft)
+  const bar = (label: string, val: number, color: string) => `
+    <div class="space-y-1">
+      <div class="flex justify-between text-[10px] uppercase tracking-wider"><span class="text-gray-400">${label}</span><span class="text-${color}-300 font-bold">${val.toFixed(1)}/10</span></div>
+      <div class="h-2 bg-white/5 rounded-full overflow-hidden"><div class="h-full bg-${color}-500 rounded-full" style="width:${val * 10}%"></div></div>
+    </div>`
+  return `<div class="space-y-4">
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-cyan-500/15 text-cyan-300 text-[10px] rounded-full border border-cyan-500/30 font-bold uppercase tracking-wider">Draft Review</span></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-[10px] text-gray-500 uppercase mb-1">Draft yang dianalisis</p><p class="text-sm text-gray-200 whitespace-pre-wrap">"${safe}"</p></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+      <p class="text-[10px] text-gray-300 font-bold uppercase">📊 Tone Score</p>
+      ${bar('Needy', scores.needy, 'rose')}
+      ${bar('Emotional', scores.emotional, 'amber')}
+      ${bar('Pressure', scores.pressure, 'red')}
+      ${bar('Length', scores.length, 'cyan')}
+    </div>
+    <div class="bg-${verdict.color}-500/10 border border-${verdict.color}-500/30 rounded-xl p-4">
+      <p class="text-[10px] text-${verdict.color}-300 font-bold uppercase mb-1">🎯 VERDICT</p>
+      <p class="text-2xl font-black text-${verdict.color}-300 mb-1.5">${verdict.label}</p>
+      <p class="text-sm text-gray-200">${verdict.reason}</p>
+    </div>
+    <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-indigo-300 font-bold uppercase mb-2">💡 Re-write Tips</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• Pendekkan: 1-3 kalimat cukup</li>
+        <li>• Hilangkan "plis", "tolong balas", "kenapa diem"</li>
+        <li>• Pakai "I-statement" (aku merasa...) bukan "you-statement" (kamu selalu...)</li>
+        <li>• Tidak ada deadline ("balas hari ini ya")</li>
+      </ul>
+    </div>
+  </div>`
+}
+
+function renderBoundaryChecker(story: string, blocked: boolean, crisis: { crisis: boolean; message?: string }): string {
+  const safe = escClarity(story)
+  const status = blocked
+    ? { color: 'red', label: 'NO-CONTACT MODE AKTIF', desc: 'Sistem mendeteksi indikasi block/ghosting. Hormati batasan — jangan hubungi via cara lain.' }
+    : { color: 'emerald', label: 'BOUNDARY OPEN', desc: 'Tidak ada indikasi block/mute. Komunikasi masih boleh, tapi tetap proporsional.' }
+  return `<div class="space-y-4">
+    ${renderCrisisBanner(crisis)}
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-red-500/15 text-red-300 text-[10px] rounded-full border border-red-500/30 font-bold uppercase tracking-wider">Boundary Checker</span></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-sm text-gray-200">"${safe}"</p></div>
+    <div class="bg-${status.color}-500/10 border border-${status.color}-500/30 rounded-xl p-4">
+      <p class="text-[10px] text-${status.color}-300 font-bold uppercase mb-1">Status</p>
+      <p class="text-xl font-black text-${status.color}-300 mb-1.5">${status.label}</p>
+      <p class="text-sm text-gray-200">${status.desc}</p>
+    </div>
+    ${blocked ? `<div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-amber-300 font-bold uppercase mb-2">🚫 Yang TIDAK Boleh</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• Buat akun baru / DM via teman / kontak via aplikasi lain</li>
+        <li>• Cek profilnya berulang (dari akun anonim sekalipun)</li>
+        <li>• Story/post yang ditujukan ke dia (passive-aggressive)</li>
+        <li>• Tanya teman dia tentang dia</li>
+      </ul>
+    </div>` : ''}
+    <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-emerald-300 font-bold uppercase mb-2">✅ Yang DILAKUKAN</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• Mute/unfollow akunnya — kurangi exposure</li>
+        <li>• Mulai Recovery Plan (cek tab Recovery)</li>
+        <li>• Energi ke diri sendiri: olahraga, project, teman lain</li>
+        <li>• Kalau berat, hubungi profesional</li>
+      </ul>
+    </div>
+  </div>`
+}
+
+function renderRecoveryPlan(days: number, context: string): string {
+  const ctx = context ? `<div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-[10px] text-gray-500 uppercase mb-1">Konteks</p><p class="text-sm text-gray-200">"${escClarity(context)}"</p></div>` : ''
+  const phases: [string, string, string, string, string, string][] = days >= 30 ? [
+    ['1-3','red','Detox','Tidur 8 jam, no-contact, sosmed off, hp di mode minim','Apa yang aku rasakan hari ini?','Detox 72 jam'],
+    ['4-10','amber','Stabilisasi','Olahraga ringan, makan whole food, journaling pagi','Pelajaran apa dari ini?','Habit baru pagi'],
+    ['11-21','cyan','Rebuild','Project pribadi, networking baru, skill upgrade','Versi terbaik aku?','1 win nyata'],
+    ['22-30','emerald','Glow-up','Weekly Review aktif, hasil project di-publish, body goal','Aku sekarang vs 30 hari lalu — apa yang berubah?','Re-launch identitas digital'],
+  ] : days >= 21 ? [
+    ['1-3','red','Detox','Tidur cukup, no-contact, sosmed off','Apa yang aku rasakan?','Detox 48 jam'],
+    ['4-10','amber','Stabilisasi','Olahraga, makan whole food, journal','Pelajaran apa?','Skill baru'],
+    ['11-21','emerald','Rebuild','Project pribadi, network baru','Versi terbaik aku?','Comeback'],
+  ] : [
+    ['1-2','red','Reset','Tidur, no-contact, hp di mode minim','Apa rasanya hari ini?','Detox 24 jam'],
+    ['3-5','amber','Stabilisasi','Olahraga ringan, journaling','Apa yang aku syukuri?','Habit pagi'],
+    ['6-7','emerald','Re-focus','Pilih 1 goal kecil + jalani','Langkah pertama?','1 win nyata'],
+  ]
+  return `<div class="space-y-4">
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-emerald-500/15 text-emerald-300 text-[10px] rounded-full border border-emerald-500/30 font-bold uppercase tracking-wider">Recovery Plan ${days} Hari</span></div>
+    ${ctx}
+    <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-indigo-300 font-bold uppercase mb-2">🎯 Tujuan</p>
+      <p class="text-sm text-gray-200">Pulihkan ritme. Bangun ulang fokus. Tutup chapter dengan elegan. Bukan untuk membuktikan apa-apa ke siapa pun — untuk dirimu sendiri.</p>
+    </div>
+    <div class="space-y-2">
+      ${phases.map(([range,color,title,habit,journal,goal], idx) => `
+        <div class="bg-white/5 border border-${color}-500/20 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <p class="text-${color}-300 font-bold text-sm">Hari ${range} — ${title}</p>
+            <span class="px-2 py-0.5 bg-${color}-500/10 text-${color}-300 text-[10px] rounded-full border border-${color}-500/20 font-bold">PHASE ${idx + 1}</span>
+          </div>
+          <div class="grid sm:grid-cols-3 gap-2 text-sm text-gray-200">
+            <div><span class="text-[10px] text-gray-500 uppercase block">Habit</span>${habit}</div>
+            <div><span class="text-[10px] text-gray-500 uppercase block">Journal Prompt</span>"${journal}"</div>
+            <div><span class="text-[10px] text-gray-500 uppercase block">Mini Goal</span>${goal}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-rose-300 font-bold uppercase mb-2">⚠️ Aturan Recovery</p>
+      <ul class="text-sm text-gray-200 space-y-1.5">
+        <li>• No-contact streak = non-negotiable</li>
+        <li>• Setiap relapse (cek profilnya, dll) → reset hitungan ke H-1</li>
+        <li>• Track di tab Habits SparkMind — gunakan heatmap</li>
+        <li>• Setiap minggu: Weekly Review</li>
+      </ul>
+    </div>
+  </div>`
+}
+
+function renderDecisionMode(story: string): string {
+  const safe = escClarity(story)
+  const blocked = detectBoundary(story)
+  const recommend = blocked
+    ? { label: 'MOVE ON TOTAL — Recovery Plan 30 Hari', color: 'red', reason: 'Block / ghosting = batasan. Hormati. Energimu lebih bernilai untuk dirimu sendiri.' }
+    : { label: 'PAUSE 7 HARI + 1 PESAN DEWASA', color: 'amber', reason: 'Beri ruang dulu. Setelah 7 hari clarity, baru putuskan kirim 1 pesan singkat tanpa tuntutan, atau lanjut move on.' }
+  return `<div class="space-y-4">
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-amber-500/15 text-amber-300 text-[10px] rounded-full border border-amber-500/30 font-bold uppercase tracking-wider">Decision Mode</span></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-sm text-gray-200">"${safe}"</p></div>
+    <div class="bg-${recommend.color}-500/10 border border-${recommend.color}-500/30 rounded-xl p-4">
+      <p class="text-[10px] text-${recommend.color}-300 font-bold uppercase mb-2">🎯 REKOMENDASI</p>
+      <p class="text-xl font-black text-${recommend.color}-300 mb-1.5">${recommend.label}</p>
+      <p class="text-sm text-gray-200">${recommend.reason}</p>
+    </div>
+    <p class="text-xs text-indigo-300 font-bold uppercase tracking-wider">5 Pilihan yang Tersedia</p>
+    <div class="space-y-2">
+      <div class="bg-white/5 border-l-2 border-emerald-500 p-3 rounded-r"><b class="text-emerald-300 text-sm">A. Lanjut Pelan</b><p class="text-sm text-gray-300 mt-0.5">Komunikasi normal, frequency rendah, tidak demanding. Pilih jika belum ada batasan jelas.</p></div>
+      <div class="bg-white/5 border-l-2 border-cyan-500 p-3 rounded-r"><b class="text-cyan-300 text-sm">B. Kirim 1 Pesan Terakhir yang Sehat</b><p class="text-sm text-gray-300 mt-0.5">Closure singkat tanpa drama. Setelah itu lepas — apapun responnya.</p></div>
+      <div class="bg-white/5 border-l-2 border-amber-500 p-3 rounded-r"><b class="text-amber-300 text-sm">C. Pause Total 7-14 Hari</b><p class="text-sm text-gray-300 mt-0.5">No-contact sementara. Pulihkan clarity. Re-evaluate setelah waktu habis.</p></div>
+      <div class="bg-white/5 border-l-2 border-red-500 p-3 rounded-r"><b class="text-red-300 text-sm">D. Move On Total</b><p class="text-sm text-gray-300 mt-0.5">Trigger Recovery Plan 30 hari. Tutup chapter. Buka chapter baru tentang dirimu.</p></div>
+      <div class="bg-white/5 border-l-2 border-violet-500 p-3 rounded-r"><b class="text-violet-300 text-sm">E. Fokus Diri 30 Hari</b><p class="text-sm text-gray-300 mt-0.5">Pause + glow-up plan. Bukan untuk balas dendam — untuk jadi versi terbaik dirimu.</p></div>
+    </div>
+    <div class="text-[10px] text-gray-500 italic">⚠️ Keputusan akhir tetap di tangan kamu. AI bantu refleksi, bukan menggantikan judgement kamu.</div>
+  </div>`
+}
+
+function renderRelationshipSWOT(context: string): string {
+  const safe = escClarity(context)
+  return `<div class="space-y-4">
+    <div class="flex items-center gap-2"><span class="px-2.5 py-1 bg-pink-500/15 text-pink-300 text-[10px] rounded-full border border-pink-500/30 font-bold uppercase tracking-wider">Relationship SWOT</span></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3"><p class="text-[10px] text-gray-500 uppercase mb-1">Konteks hubungan</p><p class="text-sm text-gray-200">"${safe}"</p></div>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4"><p class="text-[10px] text-emerald-300 font-bold uppercase mb-2">💪 Strengths</p><ul class="text-sm text-gray-200 space-y-1.5"><li>• Komunikasi awal terbuka</li><li>• Saling support pekerjaan</li><li>• Punya nilai/visi yang sejalan</li></ul></div>
+      <div class="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4"><p class="text-[10px] text-rose-300 font-bold uppercase mb-2">⚠️ Weaknesses</p><ul class="text-sm text-gray-200 space-y-1.5"><li>• Pola hot-cold belum dibahas</li><li>• Komunikasi konflik via chat</li><li>• Kurang quality time tanpa hp</li></ul></div>
+      <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4"><p class="text-[10px] text-cyan-300 font-bold uppercase mb-2">🚀 Opportunities</p><ul class="text-sm text-gray-200 space-y-1.5"><li>• Ngobrol terstruktur 1x/minggu</li><li>• Couple goal bareng</li><li>• Komitmen growth individu</li></ul></div>
+      <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4"><p class="text-[10px] text-amber-300 font-bold uppercase mb-2">🛡️ Threats</p><ul class="text-sm text-gray-200 space-y-1.5"><li>• Asumsi tanpa klarifikasi</li><li>• Pengaruh pihak ketiga</li><li>• Stress kerja merembes ke relasi</li></ul></div>
+    </div>
+    <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+      <p class="text-[10px] text-indigo-300 font-bold uppercase mb-2">🎯 Strategic Move</p>
+      <p class="text-sm text-gray-200 leading-relaxed">Pakai <b>Strengths</b> untuk eksploitasi <b>Opportunities</b> (jadwal weekly check-in). Tutup <b>Weaknesses</b> dengan ngobrol langsung, bukan chat. Mitigasi <b>Threats</b> dengan boundary digital + komunikasi rutin.</p>
+    </div>
+  </div>`
+}
+
+// ============================================
+// CLARITY PAGE — UI for Painkiller Module
+// ============================================
+const CLARITY_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>AI Clarity & Recovery Coach — SparkMind V7.0</title>
+  <meta name="description" content="Painkiller AI untuk hubungan & emosi: Situation Decoder, Draft Review, Boundary Checker, Recovery Plan. Privacy-first, etis, tidak manipulatif.">
+  <meta name="keywords" content="ai clarity coach, recovery, breakup, ghosting, blokir, overthinking, indonesia">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta property="og:title" content="AI Clarity & Recovery Coach — SparkMind V7.0">
+  <meta property="og:description" content="Dari overthinking jadi strategi. Bukan bantu mengejar orang — bantu kamu mengambil keputusan yang elegan.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%237c3aed'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3EC%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    *{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif}
+    body{background:#0a0a1a;color:#e5e7eb}
+    .gradient-text{background:linear-gradient(135deg,#a78bfa,#ec4899,#fb7185);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08)}
+    .grid-bg{background-image:linear-gradient(rgba(167,139,250,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.06) 1px,transparent 1px);background-size:50px 50px}
+    .btn-primary{background:linear-gradient(135deg,#7c3aed,#ec4899);transition:all .25s}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(124,58,237,.4)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .tab-btn{transition:all .2s}
+    .tab-btn.active{background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;box-shadow:0 6px 20px rgba(124,58,237,.4)}
+    textarea,input{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff}
+    textarea:focus,input:focus{outline:none;border-color:#a78bfa;background:rgba(255,255,255,.08)}
+  </style>
+</head>
+<body class="min-h-screen relative">
+  <div class="fixed inset-0 grid-bg opacity-40 pointer-events-none"></div>
+  <div class="fixed top-0 left-1/4 w-96 h-96 bg-violet-600/15 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="fixed top-32 right-1/4 w-96 h-96 bg-pink-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+  <nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/70 border-b border-white/5">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center font-bold text-white shadow-lg">C</div>
+        <div class="leading-tight">
+          <span class="block text-base font-bold tracking-tight">Clarity Coach <span class="text-[10px] text-violet-400 font-mono ml-0.5">V7.0</span></span>
+          <span class="block text-[10px] text-gray-500">Painkiller AI · Privacy-first</span>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="/app" class="hidden sm:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5">App</a>
+        <a href="/pricing" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Upgrade</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="relative pt-28 pb-8 px-4 sm:px-6 max-w-5xl mx-auto">
+    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-xs text-violet-300 mb-5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      V7.0 CLARITY EDITION · Etis · Boundary-first · No Manipulation
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-black mb-3 leading-tight tracking-tight">
+      Dari overthinking <br>jadi <span class="gradient-text">strategi.</span>
+    </h1>
+    <p class="text-base text-gray-400 max-w-2xl leading-relaxed">
+      Bukan bantu mengejar orang. <b class="text-white">Bantu kamu mengambil keputusan yang elegan.</b> Painkiller AI untuk situasi hubungan yang kacau — situation decoder, draft review, boundary checker, recovery plan.
+    </p>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 pb-24 relative">
+    <div class="flex flex-wrap gap-2 mb-5 sticky top-16 z-30 backdrop-blur-md bg-slate-950/60 -mx-2 px-2 py-2 rounded-xl">
+      <button class="tab-btn active px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10" data-tab="decode"><i class="fas fa-search mr-1.5"></i>Situation Decoder</button>
+      <button class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10 bg-white/5" data-tab="draft"><i class="fas fa-pen-fancy mr-1.5"></i>Draft Review</button>
+      <button class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10 bg-white/5" data-tab="boundary"><i class="fas fa-shield-halved mr-1.5"></i>Boundary</button>
+      <button class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10 bg-white/5" data-tab="recovery"><i class="fas fa-heart-pulse mr-1.5"></i>Recovery Plan</button>
+      <button class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10 bg-white/5" data-tab="decision"><i class="fas fa-route mr-1.5"></i>Decision</button>
+      <button class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-semibold border border-white/10 bg-white/5" data-tab="swot"><i class="fas fa-chart-pie mr-1.5"></i>SWOT</button>
+    </div>
+
+    <section class="panel" data-panel="decode">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-violet-300 font-bold uppercase tracking-wider mb-2">🔍 Situation Decoder</p>
+        <p class="text-sm text-gray-400 mb-3">Cerita singkat situasi kamu. AI baca dalam <b>probabilitas</b> (bukan kepastian) + kasih action plan etis.</p>
+        <textarea id="decode-input" rows="4" maxlength="2000" class="w-full p-3 rounded-xl text-sm" placeholder='Contoh: "Dia berubah dingin 3 hari ini" / "Aku bingung lanjut atau berhenti"'></textarea>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-[10px] text-gray-500" id="decode-count">0/2000</span>
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="decode"><i class="fas fa-bolt mr-1.5"></i>Decode</button>
+        </div>
+      </div>
+      <div id="decode-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <section class="panel hidden" data-panel="draft">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-cyan-300 font-bold uppercase tracking-wider mb-2">✍️ Chat & WA Draft Review</p>
+        <p class="text-sm text-gray-400 mb-3">Paste draft chat — AI scan tone (needy / emotional / pressure). Verdict: KIRIM / REVISI / JANGAN KIRIM.</p>
+        <textarea id="draft-input" rows="6" maxlength="2000" class="w-full p-3 rounded-xl text-sm" placeholder="Paste draft chat kamu di sini sebelum kirim..."></textarea>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-[10px] text-gray-500" id="draft-count">0/2000</span>
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="draft"><i class="fas fa-magnifying-glass mr-1.5"></i>Review</button>
+        </div>
+      </div>
+      <div id="draft-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <section class="panel hidden" data-panel="boundary">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-red-300 font-bold uppercase tracking-wider mb-2">🚧 Boundary Checker</p>
+        <p class="text-sm text-gray-400 mb-3">Sistem deteksi block / mute / ghosting → auto lock no-contact mode.</p>
+        <textarea id="boundary-input" rows="4" maxlength="2000" class="w-full p-3 rounded-xl text-sm" placeholder='Contoh: "Aku diblokir dia 2 hari lalu"'></textarea>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-[10px] text-gray-500" id="boundary-count">0/2000</span>
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="boundary"><i class="fas fa-shield-halved mr-1.5"></i>Check</button>
+        </div>
+      </div>
+      <div id="boundary-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <section class="panel hidden" data-panel="recovery">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-emerald-300 font-bold uppercase tracking-wider mb-2">💚 Recovery Plan</p>
+        <p class="text-sm text-gray-400 mb-3">Plan harian terintegrasi: Habit + Journal Prompt + Mini Goal per fase.</p>
+        <div class="flex gap-3 mb-3 flex-wrap">
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="rp-days" value="7"> <span class="text-sm">7 hari</span></label>
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="rp-days" value="21"> <span class="text-sm">21 hari</span></label>
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="rp-days" value="30" checked> <span class="text-sm">30 hari</span></label>
+        </div>
+        <input id="recovery-input" maxlength="500" class="w-full p-3 rounded-xl text-sm" placeholder="Konteks singkat (opsional): habis diblokir / putus / overthinking, dll.">
+        <div class="flex justify-end mt-3">
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="recovery"><i class="fas fa-heart-pulse mr-1.5"></i>Generate Plan</button>
+        </div>
+      </div>
+      <div id="recovery-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <section class="panel hidden" data-panel="decision">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-amber-300 font-bold uppercase tracking-wider mb-2">🧭 Decision Mode</p>
+        <p class="text-sm text-gray-400 mb-3">AI bantu pilih: lanjut pelan / 1 pesan terakhir / pause / move on / fokus diri 30 hari.</p>
+        <textarea id="decision-input" rows="4" maxlength="2000" class="w-full p-3 rounded-xl text-sm" placeholder="Cerita situasinya — AI bantu lihat 5 opsi sehat..."></textarea>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-[10px] text-gray-500" id="decision-count">0/2000</span>
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="decision"><i class="fas fa-route mr-1.5"></i>Decide</button>
+        </div>
+      </div>
+      <div id="decision-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <section class="panel hidden" data-panel="swot">
+      <div class="glass rounded-2xl p-5 mb-4">
+        <p class="text-xs text-pink-300 font-bold uppercase tracking-wider mb-2">📊 Relationship SWOT</p>
+        <p class="text-sm text-gray-400 mb-3">Analisis hubungan dalam 4 dimensi: Strength, Weakness, Opportunity, Threat.</p>
+        <input id="swot-input" maxlength="500" class="w-full p-3 rounded-xl text-sm" placeholder="Konteks hubungan (mis: pacar 2 tahun, sering konflik chat)">
+        <div class="flex justify-end mt-3">
+          <button class="btn-primary px-5 py-2 rounded-xl font-semibold text-sm text-white" data-act="swot"><i class="fas fa-chart-pie mr-1.5"></i>Analyze</button>
+        </div>
+      </div>
+      <div id="swot-out" class="glass rounded-2xl p-5 hidden"></div>
+    </section>
+
+    <aside class="mt-8 glass rounded-2xl p-5">
+      <p class="text-xs text-amber-300 font-bold uppercase tracking-wider mb-2">⚠️ Disclaimer Etika</p>
+      <p class="text-sm text-gray-300 leading-relaxed">Tool ini <b>bukan untuk memanipulasi, menembus block, atau mengontrol orang</b>. Tool ini bantu kamu refleksi & membuat keputusan etis. Bukan pengganti terapis profesional. Untuk masalah berat (depresi, kecemasan parah, ide bunuh diri), segera kontak <b>Into the Light Indonesia (119 ext 8)</b>.</p>
+    </aside>
+  </main>
+
+  <footer class="py-8 px-4 text-center border-t border-white/5">
+    <p class="text-xs text-gray-500">© 2026 SparkMind V7.0 CLARITY EDITION — Painkiller AI Coach 🇮🇩</p>
+  </footer>
+
+  <script>
+  (function(){
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    $$('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        $$('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('bg-white/5'); });
+        btn.classList.add('active'); btn.classList.remove('bg-white/5');
+        $$('.panel').forEach(p => p.classList.add('hidden'));
+        document.querySelector('.panel[data-panel="'+tab+'"]').classList.remove('hidden');
+      });
+    });
+    [['decode-input','decode-count'],['draft-input','draft-count'],['boundary-input','boundary-count'],['decision-input','decision-count']].forEach(([i,c]) => {
+      const inp = $('#'+i), cnt = $('#'+c);
+      if (!inp || !cnt) return;
+      inp.addEventListener('input', () => { cnt.textContent = inp.value.length + '/' + (inp.maxLength||2000); });
+    });
+    async function call(path, body, outId, btn) {
+      const out = $('#'+outId);
+      out.classList.remove('hidden');
+      out.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-400"><i class="fas fa-spinner fa-spin"></i> Sedang menganalisis dengan etika & probabilitas...</div>';
+      btn.disabled = true;
+      try {
+        const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (!r.ok || d.error) {
+          out.innerHTML = '<div class="text-sm text-rose-300"><i class="fas fa-triangle-exclamation mr-1.5"></i>' + (d.error || 'Server error') + '</div>';
+        } else {
+          out.innerHTML = d.html || '<div class="text-sm text-gray-400">No response</div>';
+        }
+      } catch (e) {
+        out.innerHTML = '<div class="text-sm text-rose-300"><i class="fas fa-triangle-exclamation mr-1.5"></i>Network error: ' + (e.message||'unknown') + '</div>';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    document.body.addEventListener('click', e => {
+      const btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      const act = btn.dataset.act;
+      if (act === 'decode')   { const v = $('#decode-input').value.trim();   if(!v){alert('Cerita dulu situasinya 🙏');return;} call('/api/clarity/decode',         { story: v }, 'decode-out', btn); }
+      if (act === 'draft')    { const v = $('#draft-input').value.trim();    if(!v){alert('Paste draft chat dulu');return;}     call('/api/clarity/draft-review',   { draft: v }, 'draft-out', btn); }
+      if (act === 'boundary') { const v = $('#boundary-input').value.trim(); if(!v){alert('Cerita situasinya dulu');return;}    call('/api/clarity/boundary',       { story: v }, 'boundary-out', btn); }
+      if (act === 'recovery') { const days = +(document.querySelector('input[name=rp-days]:checked')?.value||30); const ctx = $('#recovery-input').value.trim(); call('/api/clarity/recovery-plan', { days, context: ctx }, 'recovery-out', btn); }
+      if (act === 'decision') { const v = $('#decision-input').value.trim(); if(!v){alert('Cerita situasinya dulu');return;}    call('/api/clarity/decision',       { story: v }, 'decision-out', btn); }
+      if (act === 'swot')     { const v = $('#swot-input').value.trim();     if(!v){alert('Konteks hubungan dulu');return;}     call('/api/clarity/relationship-swot', { context: v }, 'swot-out', btn); }
+    });
+  })();
   </script>
 </body>
 </html>`
