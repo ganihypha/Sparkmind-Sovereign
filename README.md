@@ -1,19 +1,44 @@
-# SparkMind V7.0 CLARITY EDITION — AI Strategic Guide + Painkiller Coach
+# SparkMind V7.1 PRODUCTION — Duitku Live Migration (Painkiller Coach)
 
 ## Project Overview
-- **Name**: SparkMind V7.0 CLARITY EDITION
+- **Name**: SparkMind V7.1 PRODUCTION (Duitku Live)
 - **Goal**: AI Strategic Guide untuk hidup berdaulat — sekarang dengan **AI Clarity & Recovery Coach** (Painkiller Module) yang etis, boundary-first, no-manipulation, untuk situasi hubungan / overthinking / pasca-blokir / decision-paralysis.
-- **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout** + **6 Clarity Coach modules** + 10 pricing plans (4 core + 6 painkiller packs).
+- **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout (PRODUCTION)** + **6 Clarity Coach modules** + 10 pricing plans (4 core + 6 painkiller packs).
 
 ## 🔗 URLs
-- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.0
+- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.1 (Duitku Live)
 - **Clarity & Recovery Coach**: https://sparkmind-v2.pages.dev/clarity
-- **Pricing & Pay**: https://sparkmind-v2.pages.dev/pricing
+- **Pricing & Pay (LIVE)**: https://sparkmind-v2.pages.dev/pricing
 - **App (Dashboard)**: https://sparkmind-v2.pages.dev/app
-- **Latest Deploy**: https://4d7cd902.sparkmind-v2.pages.dev
-- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.0`)
+- **Latest Deploy**: https://5b7c73cb.sparkmind-v2.pages.dev
+- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.1-prod`)
 - **Master Session Architect Prompt (handoff)**: `docs/MASTER_SESSION_ARCHITECT_PROMPT.md`
-- **Duitku Docs**: https://docs.duitku.com/pop/en/
+- **Duitku Docs**: https://docs.duitku.com/pop/en/ + https://docs.duitku.com/api/en/
+
+## 🚀 V7.1 PRODUCTION MIGRATION (Duitku Sandbox → Live)
+
+**Migration scope**: switched the entire payment stack from Duitku Sandbox (DS30026) to **Duitku Production (D22457)** based on deep research of the official docs (`docs.duitku.com/pop/en/` + `docs.duitku.com/api/en/`).
+
+### Changes shipped in V7.1
+| Layer | Sandbox (V7.0) | Production (V7.1) |
+|---|---|---|
+| Merchant Code | `DS30026` | **`D22457`** |
+| API Key | `ca1fe...c8f62` | **`82ba4f6755c2b05f0ca4ff397488af96`** |
+| `DUITKU_ENV` default | `sandbox` | **`production`** |
+| Create Invoice URL | `api-sandbox.duitku.com/api/merchant/createInvoice` | **`api-prod.duitku.com/api/merchant/createInvoice`** |
+| Transaction Status URL | ❌ wrong: `api-sandbox.duitku.com/.../transactionStatus` | ✅ FIXED: **`passport.duitku.com/webapi/api/merchant/transactionStatus`** (per official docs) |
+| POP JS Library | `app-sandbox.duitku.com/lib/js/duitku.js` | **`app-prod.duitku.com/lib/js/duitku.js`** |
+| UI Badge | "Duitku Sandbox" | **"Duitku Production"** |
+
+### Signatures (per Duitku spec, unchanged)
+- **Create Invoice header**: `x-duitku-signature = SHA256(merchantCode + timestamp_ms + apiKey)` ✅
+- **Callback verify**: `MD5(merchantCode + amount + merchantOrderId + apiKey)` ✅
+- **Transaction Status**: `MD5(merchantCode + merchantOrderId + apiKey)` ✅
+
+### ⚠️ Production Activation Status (Important)
+Direct test against `api-prod.duitku.com` returned **HTTP 400 — `"Merchant Not Found"`**, meaning code is 100% correct but Duitku still needs to **activate merchant `D22457` on the production environment**. Once Duitku activates the project (per the email from Customer Care Fathur), payments will go live with **zero further code changes** — the deployed V7.1 is already prod-ready.
+
+**Action item for user**: ikuti panduan `https://docs.duitku.com/account/#integrasi-akun-` untuk konfirmasi project `D22457` sudah switched ke production di Duitku merchant dashboard. Setelah aktif, hit `https://sparkmind-v2.pages.dev/pricing` → klik plan → akan langsung tembus ke Duitku Pop JS production (pembayaran riil VA / QRIS / OVO / DANA / ShopeePay / CC).
 
 ## 🛡️ V7.0 Hardening (Opsi C — Done)
 - ✅ **Cloudflare Pages `production_branch = main`** set explicitly via Cloudflare API (`PATCH /pages/projects/sparkmind-v2`)

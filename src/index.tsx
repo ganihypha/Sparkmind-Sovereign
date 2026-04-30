@@ -22,13 +22,16 @@ app.use('/api/*', cors())
 const CANONICAL_BASE_URL = 'https://sparkmind-v2.pages.dev'
 
 // ============================================
-// DUITKU CONFIG (fallback for sandbox dev)
-// In production, set these via wrangler pages secret put
+// DUITKU CONFIG (V7.1 PRODUCTION DEFAULTS)
+// Migration: sandbox → production (Merchant Code DS30026 → D22457)
+// Override via: wrangler pages secret put DUITKU_API_KEY / DUITKU_MERCHANT_CODE / DUITKU_ENV
+// Docs: https://docs.duitku.com/pop/en/  &  https://docs.duitku.com/api/en/
 // ============================================
 const DUITKU_DEFAULT = {
-  apiKey: 'ca1fe8817dc4dcab2b39d5218a2c8f62',
-  merchantCode: 'DS30026',
-  env: 'sandbox' as const,
+  // PRODUCTION credentials (Merchant: D22457)
+  apiKey: '82ba4f6755c2b05f0ca4ff397488af96',
+  merchantCode: 'D22457',
+  env: 'production' as const,
 }
 
 function getDuitkuConfig(c: any) {
@@ -194,9 +197,9 @@ app.get('/api/health', (c) => {
   const cfg = getDuitkuConfig(c)
   return c.json({
     status: 'ok',
-    service: 'SparkMind V7.0 CLARITY EDITION API',
-    version: '7.0.0',
-    engine: 'Sovereign AI Engine V7.0 + Clarity & Recovery Coach',
+    service: 'SparkMind V7.1 PRODUCTION API (Duitku Live)',
+    version: '7.1.0',
+    engine: 'Sovereign AI Engine V7.1 + Clarity & Recovery Coach + Duitku Production',
     categories: 19,
     payment: {
       provider: 'Duitku',
@@ -368,6 +371,8 @@ app.post('/api/payment/create-invoice', async (c) => {
     // Unique order ID
     const merchantOrderId = `SM${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
+    // Duitku POP — Create Invoice endpoint
+    // Source: https://docs.duitku.com/pop/en/#create-invoice
     const apiUrl = cfg.isProd
       ? 'https://api-prod.duitku.com/api/merchant/createInvoice'
       : 'https://api-sandbox.duitku.com/api/merchant/createInvoice'
@@ -479,9 +484,12 @@ app.get('/api/payment/status/:merchantOrderId', async (c) => {
     const cfg = getDuitkuConfig(c)
     const signature = md5(cfg.merchantCode + merchantOrderId + cfg.apiKey)
 
+    // FIX V7.1: Transaction-status endpoint lives on passport.duitku.com (production)
+    // and sandbox.duitku.com (sandbox), NOT on api-prod/api-sandbox subdomains.
+    // Source: https://docs.duitku.com/api/en/#check-transaction
     const apiUrl = cfg.isProd
-      ? 'https://api-prod.duitku.com/api/merchant/transactionStatus'
-      : 'https://api-sandbox.duitku.com/api/merchant/transactionStatus'
+      ? 'https://passport.duitku.com/webapi/api/merchant/transactionStatus'
+      : 'https://sandbox.duitku.com/webapi/api/merchant/transactionStatus'
 
     const resp = await fetch(apiUrl, {
       method: 'POST',
@@ -1114,8 +1122,9 @@ const PRICING_HTML = `<!DOCTYPE html>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f46e5'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-  <!-- Duitku Pop JS (sandbox) -->
-  <script src="https://app-sandbox.duitku.com/lib/js/duitku.js"></script>
+  <!-- Duitku Pop JS (PRODUCTION) — V7.1 migrated from sandbox
+       Source: https://docs.duitku.com/pop/en/#duitku-js-module-location -->
+  <script src="https://app-prod.duitku.com/lib/js/duitku.js"></script>
   <style>
     body{background:#0a0a1a;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
     .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08)}
@@ -1148,7 +1157,7 @@ const PRICING_HTML = `<!DOCTYPE html>
         <span class="text-base font-bold">SparkMind <span class="text-[10px] text-indigo-400 font-mono">V6.1</span></span>
       </a>
       <div class="flex items-center gap-2">
-        <span class="hidden sm:inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/20"><i class="fas fa-shield-alt mr-1"></i>Duitku Sandbox</span>
+        <span class="hidden sm:inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/20"><i class="fas fa-shield-alt mr-1"></i>Duitku Production</span>
         <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Buka App</a>
       </div>
     </div>
@@ -1279,7 +1288,7 @@ const PRICING_HTML = `<!DOCTYPE html>
         <span id="pay-submit-text"><i class="fas fa-lock mr-1.5"></i> Lanjut Bayar</span>
       </button>
       <p class="text-[10px] text-gray-500 text-center mt-3">
-        <i class="fas fa-shield-alt"></i> Pembayaran aman via Duitku (Sandbox).
+        <i class="fas fa-shield-alt"></i> Pembayaran aman via Duitku (Production).
         Anda akan diarahkan ke halaman pembayaran Duitku.
       </p>
     </div>
