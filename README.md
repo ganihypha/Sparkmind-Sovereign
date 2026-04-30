@@ -1,19 +1,46 @@
-# SparkMind V7.1 PRODUCTION — Duitku Live Migration (Painkiller Coach)
+# SparkMind V7.2 PRODUCTION HARDENED — Duitku Live + HTML Reconciliation
 
 ## Project Overview
-- **Name**: SparkMind V7.1 PRODUCTION (Duitku Live)
-- **Goal**: AI Strategic Guide untuk hidup berdaulat — sekarang dengan **AI Clarity & Recovery Coach** (Painkiller Module) yang etis, boundary-first, no-manipulation, untuk situasi hubungan / overthinking / pasca-blokir / decision-paralysis.
+- **Name**: SparkMind V7.2 PRODUCTION HARDENED (Duitku Deep-Research)
+- **Goal**: AI Strategic Guide untuk hidup berdaulat — dengan **AI Clarity & Recovery Coach** (Painkiller Module) yang etis, boundary-first, no-manipulation, untuk situasi hubungan / overthinking / pasca-blokir / decision-paralysis.
 - **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout (PRODUCTION)** + **6 Clarity Coach modules** + 10 pricing plans (4 core + 6 painkiller packs).
 
 ## 🔗 URLs
-- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.1 (Duitku Live)
+- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.2 PRODUCTION HARDENED (Duitku Live)
 - **Clarity & Recovery Coach**: https://sparkmind-v2.pages.dev/clarity
 - **Pricing & Pay (LIVE)**: https://sparkmind-v2.pages.dev/pricing
 - **App (Dashboard)**: https://sparkmind-v2.pages.dev/app
-- **Latest Deploy**: https://5b7c73cb.sparkmind-v2.pages.dev
-- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.1-prod`)
-- **Master Session Architect Prompt (handoff)**: `docs/MASTER_SESSION_ARCHITECT_PROMPT.md`
+- **Health (live API status)**: https://sparkmind-v2.pages.dev/api/health
+- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.2-prod-hardened`)
+- **Master Session Architect Prompt (handoff)**: `AI_DEV_HANDOFF.md` (root) — paste as first message in every dev session
 - **Duitku Docs**: https://docs.duitku.com/pop/en/ + https://docs.duitku.com/api/en/
+
+## 🛡️ V7.2 PRODUCTION HARDENED (HTML reconciliation + handoff prompt)
+
+**What got fixed in V7.2** — root cause was: Worker (`/api/*`) was already V7.1 production with Duitku live, but the embedded HTML constants (`LANDING_HTML`, `APP_HTML`) inside `src/index.tsx` still rendered V6.0/V6.1 markup → main domain `/` and `/app` showed stale version badges, while ephemeral preview hashes (`1ba322ee.sparkmind-v2.pages.dev`) showed different versions. V7.2 reconciles all three HTML constants with the Worker version.
+
+| Layer | Before (V7.1) | After (V7.2 HARDENED) |
+|---|---|---|
+| `/api/health` version | `7.1.0` | **`7.2.0`** |
+| `/api/health` service | `SparkMind V7.1 PRODUCTION API` | **`SparkMind V7.2 PRODUCTION HARDENED (Duitku Deep-Research)`** |
+| `LANDING_HTML` badge | `V6.0 BULLETPROOF` | **`V7.2 PRODUCTION HARDENED`** |
+| `LANDING_HTML` `<title>` | "SparkMind V6.0 …" | **"SparkMind V7.2 — AI Strategic Guide + Clarity Coach (Duitku Live)"** |
+| `LANDING_HTML` nav | only Pricing + App | **Clarity Coach + Pricing + App** (V7.2 painkiller visibility) |
+| `LANDING_HTML` "Apa Baru" headline | "Apa Baru di V6.0 BULLETPROOF" | **"Apa Baru di V7.2 PRODUCTION HARDENED"** |
+| `LANDING_HTML` footer | "© 2026 SparkMind V6.0 …" | **"© 2026 SparkMind V7.2 … · Clarity Coach · Pricing"** |
+| `PRICING_HTML` `<title>` | "Pricing — SparkMind V6.1 (Duitku Powered)" | **"Pricing — SparkMind V7.2 (Duitku Production Live)"** |
+| `PRICING_HTML` badge | `V6.1` | **`V7.2`** |
+| `APP_HTML` `<title>` | "SparkMind V6.0 BULLETPROOF — Dashboard" | **"SparkMind V7.2 PRODUCTION HARDENED — Dashboard"** |
+| `APP_HTML` badge | `V6.0` | **`V7.2`** |
+| `APP_HTML` footer | "SparkMind V6.0 BULLETPROOF · 2026 …" | **"SparkMind V7.2 PRODUCTION HARDENED · 2026 · … · Clarity Coach"** |
+
+### V7.2 Invariants (locked, see `AI_DEV_HANDOFF.md`)
+1. `baseUrl` resolution: `env.PUBLIC_BASE_URL → CANONICAL_BASE_URL → request origin`
+2. ALL HTML routes call `noCacheHTML(c)` → `Cache-Control: no-cache, no-store, must-revalidate`
+3. Duitku POP `<script>` switches on `cfg.isProd` (verified `app-prod.duitku.com` on `/pricing`)
+4. `PRICING_PLANS` lives server-side: 10 plans (4 core + 6 painkiller)
+5. Version string in `/api/health` MUST match all HTML version badges (drift = bug)
+6. Every deploy: `--branch main` + `--commit-message` + git tag `vX.Y-prod`
 
 ## 🚀 V7.1 PRODUCTION MIGRATION (Duitku Sandbox → Live)
 
