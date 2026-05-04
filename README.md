@@ -1,19 +1,50 @@
-# SparkMind V7.3 PRODUCTION HARDENED — Duitku Callback Lockdown (IP+MD5+Idempotent)
+# SparkMind V7.4 PRODUCTION HARDENED — Duitku Onboarding Edition (Flow + Email Draft)
 
 ## Project Overview
-- **Name**: SparkMind V7.3 PRODUCTION HARDENED (Callback Lockdown — IP+Sig+Idempotent)
+- **Name**: SparkMind V7.4 PRODUCTION HARDENED (Duitku Onboarding Edition — `/flow` + `/email-duitku`)
 - **Goal**: AI Strategic Guide untuk hidup berdaulat — dengan **AI Clarity & Recovery Coach** (Painkiller Module) yang etis, boundary-first, no-manipulation, untuk situasi hubungan / overthinking / pasca-blokir / decision-paralysis.
-- **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout (PRODUCTION)** + **Hardened Callback (IP whitelist 10 prod IPs + MD5 sig verify + idempotent)** + **6 Clarity Coach modules (all with `disclaimer` field)** + 10 pricing plans (4 core + 6 painkiller packs).
+- **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout (PRODUCTION)** + **Hardened Callback (IP whitelist 10 prod IPs + MD5 sig verify + idempotent)** + **6 Clarity Coach modules (all with `disclaimer` field)** + 10 pricing plans (4 core + 6 painkiller packs) + **NEW: `/flow` payment-flow doc page (Duitku Onboarding poin #10) + `/email-duitku` email draft + 10-dok checklist (Duitku Project D22457)**.
+
+## 🆕 V7.4 — Duitku Onboarding Edition (NEW)
+
+Difokuskan untuk memenuhi 10 dokumen onboarding Duitku Project Code **D22457** atas nama **PT Cakrawarti Waskita Digital**:
+
+### NEW Routes
+| Path | Alias | Purpose |
+|------|-------|---------|
+| `/flow` | `/payment-flow` | **Duitku Onboarding Doc #10** — Alur/flow pembayaran lengkap (high-level diagram SVG, 6 detail steps, screenshot grid, security/compliance, endpoint reference, merchant info). Anchor TOC, print-friendly, mobile-responsive. |
+| `/email-duitku` | `/duitku-email` | **Email draft profesional** balasan ke Tim Onboarding Duitku + **interactive 10-dok checklist** (state saved in localStorage) + anti-phishing warning + file naming convention + 7-langkah action plan. Tombol **Copy Email** 1-klik. |
+
+### NEW UI Touchpoints
+- **Landing nav** (`/`): tambah link `Payment Flow` (emerald, `<i class="fas fa-route">`)
+- **Pricing nav** (`/pricing`): tambah link `Flow` + `Clarity`
+- **Clarity nav** (`/clarity`): tambah link `Flow`
+- **App footer** (`/app`): tambah link `Pricing` + `Payment Flow`
+- **Landing footer**: tambah `Payment Flow`
+- **`/flow` enhancements**:
+  - Daftar Isi (TOC) dengan 6 anchor links (`#diagram`, `#steps`, `#screenshots`, `#security`, `#endpoints`, `#merchant`)
+  - Quick action buttons (Lihat Pricing, Email Draft, Save as PDF, Production URL)
+  - Section §1-§6 numbering konsisten
+  - CTA "Next Step → Email Draft" di akhir page
+- **`/email-duitku` features**:
+  - Pre-filled email draft (subject, body, 10-dok status, footer)
+  - Copy-to-clipboard tombol dengan flash animation
+  - Interactive checklist (10 dokumen, persisted via localStorage, reset button)
+  - Anti-phishing red-flag check (verify domain, dashboard, CS phone)
+  - File naming convention guide (`[N]_[NamaDok]_PT-CakrawartiWaskitaDigital.pdf`)
+  - 7-step action plan
 
 ## 🔗 URLs
-- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.3 PRODUCTION HARDENED (Callback Lockdown)
+- **Production (main domain)**: https://sparkmind-v2.pages.dev ✅ V7.4 PRODUCTION HARDENED (Duitku Onboarding Edition)
+- **🆕 Payment Flow (Duitku Doc #10)**: https://sparkmind-v2.pages.dev/flow (alias: `/payment-flow`)
+- **🆕 Email Draft (Tim Onboarding Duitku)**: https://sparkmind-v2.pages.dev/email-duitku (alias: `/duitku-email`)
 - **Clarity & Recovery Coach**: https://sparkmind-v2.pages.dev/clarity
-- **Clarity Tools API (NEW v7.3)**: https://sparkmind-v2.pages.dev/api/clarity/tools — returns 6 tools with `disclaimer` field
+- **Clarity Tools API**: https://sparkmind-v2.pages.dev/api/clarity/tools — returns 6 tools with `disclaimer` field
 - **Pricing & Pay (LIVE)**: https://sparkmind-v2.pages.dev/pricing
 - **App (Dashboard)**: https://sparkmind-v2.pages.dev/app
 - **Health (live API status)**: https://sparkmind-v2.pages.dev/api/health — reports `callbackHardening{ipWhitelist,ipCount,signatureVerify,idempotent}`
 - **Callback (Duitku → us)**: https://sparkmind-v2.pages.dev/api/payment/callback — 3-layer hardened (IP whitelist → merchant check → MD5 sig → idempotency)
-- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.3-prod-hardened`)
+- **GitHub**: https://github.com/ganihypha/Sparkmind (branch: `main`, tag: `v7.4-onboarding-edition`)
 - **Master Session Architect Prompt (handoff)**: `AI_DEV_HANDOFF.md` (root) — paste as first message in every dev session
 - **Duitku Docs**: https://docs.duitku.com/pop/en/ + https://docs.duitku.com/api/en/ + https://docs.duitku.com/api/id/#callback
 

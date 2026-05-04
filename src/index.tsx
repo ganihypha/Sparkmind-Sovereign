@@ -163,6 +163,12 @@ app.get('/', (c) => { noCacheHTML(c); return c.html(LANDING_HTML) })
 app.get('/app', (c) => { noCacheHTML(c); return c.html(APP_HTML) })
 app.get('/pricing', (c) => { noCacheHTML(c); return c.html(PRICING_HTML) })
 app.get('/clarity', (c) => { noCacheHTML(c); return c.html(CLARITY_HTML) })
+// Duitku Onboarding Doc #10 — Alur/flow pembayaran pada website yang didaftarkan
+app.get('/flow', (c) => { noCacheHTML(c); return c.html(PAYMENT_FLOW_HTML) })
+app.get('/payment-flow', (c) => { noCacheHTML(c); return c.html(PAYMENT_FLOW_HTML) })
+// Email draft balasan ke Tim Onboarding Duitku (copy-paste ready) + 10-dok checklist
+app.get('/email-duitku', (c) => { noCacheHTML(c); return c.html(EMAIL_DUITKU_HTML) })
+app.get('/duitku-email', (c) => { noCacheHTML(c); return c.html(EMAIL_DUITKU_HTML) })
 app.get('/manifest.webmanifest', (c) => {
   c.header('Content-Type', 'application/manifest+json')
   return c.body(JSON.stringify({
@@ -1129,6 +1135,7 @@ const LANDING_HTML = `<!DOCTYPE html>
       <div class="flex items-center gap-2">
         <a href="/clarity" class="hidden sm:inline-block text-sm text-violet-300 hover:text-white px-3 py-1.5 transition"><i class="fas fa-heart-pulse mr-1"></i>Clarity</a>
         <a href="/pricing" class="hidden sm:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5 transition">Pricing</a>
+        <a href="/flow" class="hidden md:inline-block text-sm text-emerald-300 hover:text-white px-3 py-1.5 transition" title="Alur Pembayaran (Duitku Onboarding)"><i class="fas fa-route mr-1"></i>Payment Flow</a>
         <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-500/30">Buka App <i class="fas fa-arrow-right ml-1 text-xs"></i></a>
       </div>
     </div>
@@ -1219,7 +1226,7 @@ const LANDING_HTML = `<!DOCTYPE html>
   </section>
 
   <footer class="py-8 px-4 text-center border-t border-white/5">
-    <p class="text-xs text-gray-500">© 2026 SparkMind V7.3 PRODUCTION HARDENED — AI Strategic Guide + Clarity Coach 🇮🇩 · <a href="/clarity" class="text-violet-400 hover:text-violet-300">Clarity Coach</a> · <a href="/pricing" class="text-indigo-400 hover:text-indigo-300">Pricing</a></p>
+    <p class="text-xs text-gray-500">© 2026 SparkMind V7.3 PRODUCTION HARDENED — AI Strategic Guide + Clarity Coach 🇮🇩 · <a href="/clarity" class="text-violet-400 hover:text-violet-300">Clarity Coach</a> · <a href="/pricing" class="text-indigo-400 hover:text-indigo-300">Pricing</a> · <a href="/flow" class="text-emerald-400 hover:text-emerald-300">Payment Flow</a></p>
   </footer>
 
   <script>
@@ -1289,6 +1296,8 @@ const PRICING_HTML = `<!DOCTYPE html>
       </a>
       <div class="flex items-center gap-2">
         <span class="hidden sm:inline-block px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/20"><i class="fas fa-shield-alt mr-1"></i>Duitku Production</span>
+        <a href="/flow" class="hidden md:inline-block text-sm text-emerald-300 hover:text-white px-3 py-1.5 transition" title="Alur Pembayaran"><i class="fas fa-route mr-1"></i>Flow</a>
+        <a href="/clarity" class="hidden sm:inline-block text-sm text-violet-300 hover:text-white px-3 py-1.5 transition">Clarity</a>
         <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Buka App</a>
       </div>
     </div>
@@ -2768,7 +2777,7 @@ const APP_HTML = `<!DOCTYPE html>
           <button id="reset-btn" class="px-4 py-2 btn-danger text-white rounded-lg text-sm font-semibold"><i class="fas fa-trash mr-1"></i>Reset Semua Data</button>
         </div>
 
-        <p class="text-center text-[10px] text-gray-600">SparkMind V7.3 PRODUCTION HARDENED · 2026 · Made with ❤️ in Indonesia · <a href="/clarity" class="text-violet-400 hover:text-violet-300">Clarity Coach</a></p>
+        <p class="text-center text-[10px] text-gray-600">SparkMind V7.3 PRODUCTION HARDENED · 2026 · Made with ❤️ in Indonesia · <a href="/clarity" class="text-violet-400 hover:text-violet-300">Clarity Coach</a> · <a href="/pricing" class="text-indigo-400 hover:text-indigo-300">Pricing</a> · <a href="/flow" class="text-emerald-400 hover:text-emerald-300">Payment Flow</a></p>
       </div>\`;
     $('export-btn').addEventListener('click', exportData);
     $('import-btn').addEventListener('click', () => $('import-file').click());
@@ -3116,6 +3125,724 @@ function renderRelationshipSWOT(context: string): string {
 }
 
 // ============================================
+// PAYMENT FLOW PAGE — Duitku Onboarding Doc #10
+// "Alur/flow pembayaran pada website yang didaftarkan"
+// Production-ready visual + textual documentation of the end-to-end payment journey.
+// Route: /flow  (alias: /payment-flow)
+// ============================================
+const PAYMENT_FLOW_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Alur Pembayaran — SparkMind × Duitku (Project D22457)</title>
+  <meta name="description" content="Dokumentasi resmi alur/flow pembayaran website SparkMind (PT Cakrawarti Waskita Digital) — terintegrasi Duitku Payment Gateway. Untuk verifikasi onboarding Duitku Project Code D22457.">
+  <meta name="robots" content="index,follow">
+  <meta property="og:title" content="Alur Pembayaran SparkMind × Duitku">
+  <meta property="og:description" content="End-to-end payment flow — pilih plan → checkout → Duitku gateway → callback → konfirmasi.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f46e5'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body{background:#0a0a1a;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .step-card{background:linear-gradient(135deg,rgba(79,70,229,.08),rgba(168,85,247,.04));border:1px solid rgba(99,102,241,.25);border-radius:16px}
+    .step-num{background:linear-gradient(135deg,#4f46e5,#a855f7);box-shadow:0 8px 24px rgba(79,70,229,.4)}
+    .arrow{color:#6366f1}
+    .mockup{background:#0f0f23;border:1px solid rgba(99,102,241,.3);border-radius:12px;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:12px}
+    .badge-ok{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+    .badge-info{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+    .badge-warn{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+    .grid-flow{background-image:radial-gradient(rgba(99,102,241,.15) 1px,transparent 1px);background-size:24px 24px}
+    @media print{body{background:#fff;color:#000} .no-print{display:none!important} .step-card{border-color:#999;background:#fff} .mockup{background:#f4f4f4;color:#000;border-color:#999} .step-num{background:#4f46e5!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    @keyframes flow{0%{stroke-dashoffset:40}100%{stroke-dashoffset:0}}
+    .flow-line{stroke-dasharray:6 4;animation:flow 2s linear infinite}
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- HEADER -->
+  <header class="border-b border-indigo-900/40 bg-[#0a0a1a]/95 backdrop-blur sticky top-0 z-30 no-print">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 font-bold">
+        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">S</span>
+        <span>SparkMind</span>
+      </a>
+      <nav class="flex items-center gap-1 text-sm">
+        <a href="/" class="hidden sm:inline-block px-3 py-1.5 rounded-lg hover:bg-white/5">Home</a>
+        <a href="/pricing" class="hidden sm:inline-block px-3 py-1.5 rounded-lg hover:bg-white/5">Pricing</a>
+        <a href="/flow" class="px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300"><i class="fas fa-route mr-1"></i>Flow</a>
+        <a href="/email-duitku" class="px-3 py-1.5 rounded-lg hover:bg-white/5 text-amber-300"><i class="fas fa-envelope mr-1"></i>Email Draft</a>
+        <button onclick="window.print()" class="ml-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs"><i class="fas fa-print mr-1"></i>Print / PDF</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+
+    <!-- TITLE BLOCK -->
+    <section class="mb-10">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full badge-info text-xs font-semibold mb-4">
+        <i class="fas fa-shield-check"></i> DOKUMEN ONBOARDING DUITKU — POIN #10
+      </div>
+      <h1 class="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+        Alur / Flow Pembayaran<br>
+        <span class="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SparkMind × Duitku</span>
+      </h1>
+      <p class="text-gray-300 text-lg max-w-3xl leading-relaxed">
+        Dokumentasi resmi end-to-end payment journey untuk website
+        <a href="https://sparkmind-v2.pages.dev/" class="text-indigo-300 underline">https://sparkmind-v2.pages.dev/</a>
+        — atas nama <b class="text-white">PT Cakrawarti Waskita Digital</b>,
+        terintegrasi penuh dengan <b class="text-white">Duitku Payment Gateway</b> (Merchant Code D22457, mode production).
+      </p>
+      <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div class="step-card p-3"><div class="text-gray-400">Project Code</div><div class="font-bold text-white text-sm">D22457</div></div>
+        <div class="step-card p-3"><div class="text-gray-400">Merchant</div><div class="font-bold text-white text-sm">PT Cakrawarti Waskita Digital</div></div>
+        <div class="step-card p-3"><div class="text-gray-400">Gateway Mode</div><div class="font-bold text-emerald-400 text-sm">PRODUCTION (LIVE)</div></div>
+        <div class="step-card p-3"><div class="text-gray-400">Last Updated</div><div class="font-bold text-white text-sm" id="lastUpdated">—</div></div>
+      </div>
+
+      <!-- QUICK ACTION BUTTONS -->
+      <div class="mt-6 flex flex-wrap gap-2 no-print">
+        <a href="/pricing" class="px-4 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-200 text-sm font-medium transition"><i class="fas fa-tags mr-1.5"></i>Lihat Halaman Pricing (Live)</a>
+        <a href="/email-duitku" class="px-4 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-200 text-sm font-medium transition"><i class="fas fa-envelope mr-1.5"></i>Email Draft untuk Tim Duitku</a>
+        <button onclick="window.print()" class="px-4 py-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-200 text-sm font-medium transition"><i class="fas fa-file-pdf mr-1.5"></i>Save as PDF</button>
+        <a href="https://sparkmind-v2.pages.dev/flow" class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-sm font-medium transition" target="_blank"><i class="fas fa-external-link-alt mr-1.5"></i>Production URL</a>
+      </div>
+    </section>
+
+    <!-- TABLE OF CONTENTS -->
+    <section class="mb-12 step-card p-6">
+      <h2 class="text-lg font-bold mb-3 flex items-center gap-2"><i class="fas fa-list text-indigo-400"></i> Daftar Isi</h2>
+      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+        <a href="#diagram" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§1</span>High-Level Flow Diagram</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+        <a href="#steps" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§2</span>Detail 6 Tahap Pembayaran</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+        <a href="#screenshots" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§3</span>Screenshot User Journey</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+        <a href="#security" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§4</span>Keamanan &amp; Tech Stack</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+        <a href="#endpoints" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§5</span>Endpoint Reference</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+        <a href="#merchant" class="text-gray-300 hover:text-indigo-300 py-1 flex justify-between"><span><span class="text-indigo-400 font-mono mr-2">§6</span>Informasi Merchant</span><i class="fas fa-chevron-right text-xs text-gray-600"></i></a>
+      </div>
+    </section>
+
+    <!-- HIGH-LEVEL FLOW DIAGRAM -->
+    <section id="diagram" class="mb-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold mb-2 flex items-center gap-2"><i class="fas fa-project-diagram text-indigo-400"></i> §1 · High-Level Flow Diagram</h2>
+      <p class="text-gray-400 text-sm mb-5">Ringkasan visual 6 tahap utama. Detail teknis tiap tahap ada di bawah.</p>
+
+      <div class="step-card p-6 grid-flow overflow-x-auto">
+        <svg viewBox="0 0 980 240" class="w-full min-w-[860px]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#a855f7"/>
+            </marker>
+          </defs>
+          <!-- 6 nodes -->
+          <g font-family="Inter,sans-serif" font-size="11" fill="#e5e7eb">
+            <g><rect x="10"  y="90" width="140" height="60" rx="10" fill="url(#g1)"/><text x="80"  y="118" text-anchor="middle" font-weight="700">1. User</text><text x="80"  y="135" text-anchor="middle" font-size="10">Pilih Plan</text></g>
+            <g><rect x="180" y="90" width="140" height="60" rx="10" fill="#1e1b4b" stroke="#6366f1"/><text x="250" y="118" text-anchor="middle" font-weight="700">2. SparkMind</text><text x="250" y="135" text-anchor="middle" font-size="10">/api/payment/create-invoice</text></g>
+            <g><rect x="350" y="90" width="140" height="60" rx="10" fill="#1e1b4b" stroke="#6366f1"/><text x="420" y="118" text-anchor="middle" font-weight="700">3. Duitku API</text><text x="420" y="135" text-anchor="middle" font-size="10">Sign + Issue Token</text></g>
+            <g><rect x="520" y="90" width="140" height="60" rx="10" fill="url(#g1)"/><text x="590" y="118" text-anchor="middle" font-weight="700">4. Duitku POP</text><text x="590" y="135" text-anchor="middle" font-size="10">VA / QRIS / E-wallet / CC</text></g>
+            <g><rect x="690" y="90" width="140" height="60" rx="10" fill="#1e1b4b" stroke="#10b981"/><text x="760" y="118" text-anchor="middle" font-weight="700">5. Callback</text><text x="760" y="135" text-anchor="middle" font-size="10">IP+MD5+Idempotent</text></g>
+            <g><rect x="850" y="90" width="120" height="60" rx="10" fill="#064e3b" stroke="#10b981"/><text x="910" y="118" text-anchor="middle" font-weight="700">6. Sukses</text><text x="910" y="135" text-anchor="middle" font-size="10">/payment/return</text></g>
+          </g>
+          <!-- arrows -->
+          <g stroke="#a855f7" stroke-width="2" fill="none" marker-end="url(#arr)" class="flow-line">
+            <line x1="150" y1="120" x2="178" y2="120"/>
+            <line x1="320" y1="120" x2="348" y2="120"/>
+            <line x1="490" y1="120" x2="518" y2="120"/>
+            <line x1="660" y1="120" x2="688" y2="120"/>
+            <line x1="830" y1="120" x2="848" y2="120"/>
+          </g>
+          <!-- labels -->
+          <g font-family="Inter,sans-serif" font-size="9" fill="#9ca3af" text-anchor="middle">
+            <text x="164" y="110">POST plan</text>
+            <text x="334" y="110">SHA256 sig</text>
+            <text x="504" y="110">paymentUrl</text>
+            <text x="674" y="110">notify</text>
+            <text x="840" y="110">redirect</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- DETAILED STEPS -->
+    <section id="steps" class="mb-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold mb-6 flex items-center gap-2"><i class="fas fa-list-ol text-indigo-400"></i> §2 · Detail 6 Tahap Pembayaran</h2>
+
+      <!-- STEP 1 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">1</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">User Memilih Plan di Halaman Pricing</h3>
+            <p class="text-gray-400 text-sm mb-3">User mengakses <code class="text-indigo-300">/pricing</code> dan memilih salah satu paket berlangganan SparkMind.</p>
+            <ul class="text-sm text-gray-300 space-y-1 mb-4 list-disc pl-5">
+              <li>Plan tersedia: <b>Pro Monthly (Rp 49.000)</b>, <b>Pro Yearly (Rp 470.000)</b>, <b>Team (Rp 745.000)</b>, <b>Lifetime (Rp 1.490.000)</b>, dan paket Clarity Coach.</li>
+              <li>Daftar harga di-<b>hardcode di server</b> (<code class="text-indigo-300">PRICING_PLANS</code>) untuk mencegah price tampering dari client.</li>
+              <li>User klik tombol <b>"Bayar Sekarang"</b> → memicu request ke API SparkMind.</li>
+            </ul>
+            <div class="mockup p-4 text-gray-300">
+              <div class="text-emerald-400 mb-2">// Endpoint katalog plan (publik, read-only)</div>
+              GET https://sparkmind-v2.pages.dev/api/payment/plans
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 2 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">2</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">SparkMind Server Membuat Invoice</h3>
+            <p class="text-gray-400 text-sm mb-3">Cloudflare Worker (Hono) menerima request, validasi plan, generate <code>merchantOrderId</code> unik, dan men-sign request dengan <b>SHA256</b>.</p>
+            <ul class="text-sm text-gray-300 space-y-1 mb-4 list-disc pl-5">
+              <li>Endpoint: <code class="text-indigo-300">POST /api/payment/create-invoice</code></li>
+              <li>Body: <code>{ "planId": "pro-monthly", "customerEmail": "...", "customerName": "..." }</code></li>
+              <li>Server menghitung signature: <code>SHA256(merchantCode + merchantOrderId + amount + apiKey)</code></li>
+              <li><b>callbackUrl</b> & <b>returnUrl</b> di-set ke domain canonical <code>https://sparkmind-v2.pages.dev</code>.</li>
+            </ul>
+            <div class="mockup p-4 text-gray-300">
+              <div class="text-emerald-400 mb-1">// Request ke Duitku</div>
+              POST https://passport.duitku.com/webapi/api/merchant/v2/inquiry<br>
+              <span class="text-indigo-300">{</span><br>
+              &nbsp;&nbsp;"merchantCode": "D22457",<br>
+              &nbsp;&nbsp;"paymentAmount": 49000,<br>
+              &nbsp;&nbsp;"merchantOrderId": "SM-1735000000-AB12CD",<br>
+              &nbsp;&nbsp;"productDetails": "SparkMind Pro - 1 bulan langganan",<br>
+              &nbsp;&nbsp;"signature": "&lt;sha256 hex&gt;",<br>
+              &nbsp;&nbsp;"callbackUrl": "https://sparkmind-v2.pages.dev/api/payment/callback",<br>
+              &nbsp;&nbsp;"returnUrl":   "https://sparkmind-v2.pages.dev/payment/return"<br>
+              <span class="text-indigo-300">}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 3 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">3</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">Duitku API Mengembalikan Payment Token</h3>
+            <p class="text-gray-400 text-sm mb-3">Duitku memvalidasi signature, membuat invoice di sistemnya, lalu mengembalikan <code>reference</code> + <code>paymentUrl</code>.</p>
+            <ul class="text-sm text-gray-300 space-y-1 mb-4 list-disc pl-5">
+              <li>SparkMind menerima response dari Duitku (HTTP 200).</li>
+              <li>Server me-relay <code>paymentUrl</code> ke browser user (sebagai JSON).</li>
+              <li>Browser user otomatis open Duitku Pop-up Payment Page (atau redirect penuh sebagai fallback).</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 4 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">4</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">User Memilih Metode & Membayar di Duitku Pop</h3>
+            <p class="text-gray-400 text-sm mb-3">Halaman Duitku menampilkan semua metode yang tersedia. User memilih satu dan menyelesaikan pembayaran.</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              <div class="bg-white/5 rounded-lg p-3 text-center text-xs"><i class="fas fa-university text-indigo-400 text-xl mb-1"></i><div>Virtual Account<br><span class="text-gray-400">BCA, BNI, BRI, Mandiri, Permata</span></div></div>
+              <div class="bg-white/5 rounded-lg p-3 text-center text-xs"><i class="fas fa-qrcode text-emerald-400 text-xl mb-1"></i><div>QRIS<br><span class="text-gray-400">Semua bank/e-wallet QRIS</span></div></div>
+              <div class="bg-white/5 rounded-lg p-3 text-center text-xs"><i class="fas fa-wallet text-amber-400 text-xl mb-1"></i><div>E-Wallet<br><span class="text-gray-400">OVO, DANA, ShopeePay, LinkAja</span></div></div>
+              <div class="bg-white/5 rounded-lg p-3 text-center text-xs"><i class="fas fa-credit-card text-rose-400 text-xl mb-1"></i><div>Credit Card<br><span class="text-gray-400">Visa / Mastercard / JCB</span></div></div>
+            </div>
+            <p class="text-xs text-gray-500"><i class="fas fa-info-circle"></i> Pembayaran ditangani 100% di environment Duitku — SparkMind tidak menyimpan data kartu / OTP / PIN apapun (PCI-DSS scope reduction).</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 5 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">5</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">Callback Duitku → SparkMind (Server-to-Server)</h3>
+            <p class="text-gray-400 text-sm mb-3">Setelah pembayaran berhasil, Duitku mengirim notifikasi async ke <code>callbackUrl</code> kami. Endpoint ini di-<b>harden</b> dengan 3 lapis keamanan:</p>
+            <div class="grid md:grid-cols-3 gap-3 mb-4">
+              <div class="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 text-xs">
+                <div class="font-bold text-emerald-400 mb-1"><i class="fas fa-shield-alt"></i> Layer 1 — IP Whitelist</div>
+                <p class="text-gray-300">Hanya 9 IP production Duitku (182.23.85.x & 103.177.101.x) yang diizinkan via <code>CF-Connecting-IP</code>.</p>
+              </div>
+              <div class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 text-xs">
+                <div class="font-bold text-blue-400 mb-1"><i class="fas fa-fingerprint"></i> Layer 2 — MD5 Signature</div>
+                <p class="text-gray-300">Verifikasi <code>MD5(merchantCode + amount + merchantOrderId + apiKey)</code> sesuai docs Duitku.</p>
+              </div>
+              <div class="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3 text-xs">
+                <div class="font-bold text-purple-400 mb-1"><i class="fas fa-redo"></i> Layer 3 — Idempotent</div>
+                <p class="text-gray-300">In-memory cache mencegah double-processing kalau Duitku retry karena timeout.</p>
+              </div>
+            </div>
+            <div class="mockup p-4 text-gray-300">
+              <div class="text-emerald-400 mb-1">// Callback yang diterima SparkMind</div>
+              POST https://sparkmind-v2.pages.dev/api/payment/callback<br>
+              Content-Type: application/x-www-form-urlencoded<br><br>
+              merchantCode=D22457&amp;amount=49000&amp;merchantOrderId=SM-...<br>
+              &amp;reference=DXXXXXX&amp;resultCode=00&amp;signature=&lt;md5&gt;
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STEP 6 -->
+      <article class="step-card p-6 mb-5">
+        <div class="flex items-start gap-4">
+          <div class="step-num w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">6</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold mb-1">User Diarahkan ke Halaman Konfirmasi</h3>
+            <p class="text-gray-400 text-sm mb-3">Setelah Duitku selesai memproses, user di-redirect ke <code>/payment/return</code> dengan parameter <code>resultCode</code>.</p>
+            <ul class="text-sm text-gray-300 space-y-1 mb-3 list-disc pl-5">
+              <li><b>resultCode=00</b> → halaman <span class="badge-ok px-2 py-0.5 rounded text-xs">SUKSES</span> (akun di-upgrade ke Pro/Team/Lifetime).</li>
+              <li><b>resultCode=01</b> → halaman <span class="badge-warn px-2 py-0.5 rounded text-xs">PENDING / GAGAL</span> dengan tombol coba lagi.</li>
+              <li>Email konfirmasi otomatis dikirim ke user (subject: "Pembayaran SparkMind berhasil").</li>
+            </ul>
+            <p class="text-xs text-gray-500"><i class="fas fa-clock"></i> Polling tambahan ke <code>/api/payment/status/:merchantOrderId</code> dipakai sebagai safety-net jika callback delay.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- SCREENSHOT GRID -->
+    <section id="screenshots" class="mb-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold mb-2 flex items-center gap-2"><i class="fas fa-images text-indigo-400"></i> §3 · Screenshot User Journey</h2>
+      <p class="text-gray-400 text-sm mb-5">Mockup tiap tahap (bisa diklik untuk akses langsung halaman live).</p>
+      <div class="grid md:grid-cols-3 gap-4">
+        <a href="/pricing" target="_blank" class="step-card p-4 hover:border-indigo-500 transition">
+          <div class="aspect-video bg-gradient-to-br from-indigo-900/40 to-purple-900/30 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-tags text-4xl text-indigo-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 1</div>
+          <div class="font-bold">Halaman Pricing</div>
+          <div class="text-xs text-indigo-300 mt-1">/pricing →</div>
+        </a>
+        <div class="step-card p-4">
+          <div class="aspect-video bg-gradient-to-br from-emerald-900/30 to-teal-900/20 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-receipt text-4xl text-emerald-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 2-3</div>
+          <div class="font-bold">Invoice Generated</div>
+          <div class="text-xs text-emerald-300 mt-1">SparkMind ↔ Duitku API</div>
+        </div>
+        <div class="step-card p-4">
+          <div class="aspect-video bg-gradient-to-br from-amber-900/30 to-orange-900/20 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-mobile-alt text-4xl text-amber-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 4</div>
+          <div class="font-bold">Duitku Pop Payment</div>
+          <div class="text-xs text-amber-300 mt-1">VA / QRIS / E-wallet / CC</div>
+        </div>
+        <div class="step-card p-4">
+          <div class="aspect-video bg-gradient-to-br from-blue-900/30 to-cyan-900/20 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-bell text-4xl text-blue-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 5</div>
+          <div class="font-bold">Callback Diterima</div>
+          <div class="text-xs text-blue-300 mt-1">/api/payment/callback</div>
+        </div>
+        <a href="/payment/return?resultCode=00&merchantOrderId=DEMO" target="_blank" class="step-card p-4 hover:border-emerald-500 transition">
+          <div class="aspect-video bg-gradient-to-br from-emerald-900/40 to-green-900/30 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-check-circle text-4xl text-emerald-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 6 (Sukses)</div>
+          <div class="font-bold">Konfirmasi SUKSES</div>
+          <div class="text-xs text-emerald-300 mt-1">/payment/return →</div>
+        </a>
+        <a href="/payment/return?resultCode=01&merchantOrderId=DEMO" target="_blank" class="step-card p-4 hover:border-rose-500 transition">
+          <div class="aspect-video bg-gradient-to-br from-rose-900/40 to-red-900/30 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-times-circle text-4xl text-rose-400"></i></div>
+          <div class="text-xs text-gray-400 mb-1">Step 6 (Gagal)</div>
+          <div class="font-bold">Konfirmasi GAGAL</div>
+          <div class="text-xs text-rose-300 mt-1">/payment/return →</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- COMPLIANCE & TECH STACK -->
+    <section id="security" class="mb-12 grid md:grid-cols-2 gap-5 scroll-mt-24">
+      <h2 class="text-2xl font-bold mb-0 flex items-center gap-2 md:col-span-2"><i class="fas fa-shield-halved text-indigo-400"></i> §4 · Keamanan &amp; Tech Stack</h2>
+      <div class="step-card p-6">
+        <h3 class="text-lg font-bold mb-3"><i class="fas fa-shield-alt text-emerald-400"></i> Keamanan & Compliance</h3>
+        <ul class="text-sm text-gray-300 space-y-2 list-disc pl-5">
+          <li>HTTPS-only (TLS 1.3) di seluruh endpoint via Cloudflare.</li>
+          <li>Tidak ada data kartu kredit / PIN / OTP yang disimpan di server SparkMind (PCI-DSS scope reduction — Duitku adalah PCI-DSS Level 1 Service Provider).</li>
+          <li>Server-side pricing catalog (tidak bisa di-tamper dari browser).</li>
+          <li>Callback hardening: IP whitelist + MD5 signature + idempotent processing.</li>
+          <li>API key disimpan sebagai Cloudflare Secret (<code>wrangler pages secret put</code>) — tidak ada di repo.</li>
+          <li>Domain canonical lock untuk callback / return URL — mencegah hijack via preview deployment.</li>
+        </ul>
+      </div>
+      <div class="step-card p-6">
+        <h3 class="text-lg font-bold mb-3"><i class="fas fa-cogs text-indigo-400"></i> Tech Stack</h3>
+        <ul class="text-sm text-gray-300 space-y-2 list-disc pl-5">
+          <li><b>Frontend:</b> HTML5 + Tailwind CSS (CDN) + Vanilla JS</li>
+          <li><b>Backend:</b> Hono framework di Cloudflare Workers (edge, global)</li>
+          <li><b>Hosting:</b> Cloudflare Pages — <code>https://sparkmind-v2.pages.dev</code></li>
+          <li><b>Payment Gateway:</b> Duitku (Bank Indonesia licensed) — Merchant <b>D22457</b></li>
+          <li><b>Auth Signing:</b> Web Crypto API (SHA256) untuk request, MD5 untuk callback verify</li>
+          <li><b>Storage:</b> Cloudflare KV (planned, untuk subscription state durable)</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ENDPOINT REFERENCE TABLE -->
+    <section id="endpoints" class="mb-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold mb-4 flex items-center gap-2"><i class="fas fa-network-wired text-indigo-400"></i> §5 · Endpoint Reference</h2>
+      <div class="step-card overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-white/5">
+            <tr class="text-left">
+              <th class="p-3 font-semibold">Method</th>
+              <th class="p-3 font-semibold">Path</th>
+              <th class="p-3 font-semibold">Tujuan</th>
+              <th class="p-3 font-semibold">Auth</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-300">
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-info px-2 py-0.5 rounded text-xs">GET</span></td><td class="p-3 font-mono text-xs">/pricing</td><td class="p-3">Halaman pilihan plan</td><td class="p-3 text-gray-500">Public</td></tr>
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-info px-2 py-0.5 rounded text-xs">GET</span></td><td class="p-3 font-mono text-xs">/api/payment/plans</td><td class="p-3">Katalog plan (JSON)</td><td class="p-3 text-gray-500">Public</td></tr>
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-warn px-2 py-0.5 rounded text-xs">POST</span></td><td class="p-3 font-mono text-xs">/api/payment/create-invoice</td><td class="p-3">Membuat invoice + sign request ke Duitku</td><td class="p-3 text-gray-500">Public (rate-limited)</td></tr>
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-warn px-2 py-0.5 rounded text-xs">POST</span></td><td class="p-3 font-mono text-xs">/api/payment/callback</td><td class="p-3">Notifikasi async dari Duitku</td><td class="p-3"><span class="badge-ok px-2 py-0.5 rounded text-xs">IP+MD5+Idempotent</span></td></tr>
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-info px-2 py-0.5 rounded text-xs">GET</span></td><td class="p-3 font-mono text-xs">/api/payment/status/:id</td><td class="p-3">Polling status order (safety-net)</td><td class="p-3 text-gray-500">Public</td></tr>
+            <tr class="border-t border-white/5"><td class="p-3"><span class="badge-info px-2 py-0.5 rounded text-xs">GET</span></td><td class="p-3 font-mono text-xs">/payment/return</td><td class="p-3">Halaman konfirmasi pasca-bayar</td><td class="p-3 text-gray-500">Public</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CONTACT FOOTER -->
+    <section id="merchant" class="step-card p-6 mb-10 scroll-mt-24">
+      <h3 class="text-lg font-bold mb-3"><i class="fas fa-building text-indigo-400"></i> §6 · Informasi Merchant</h3>
+      <div class="grid md:grid-cols-2 gap-3 text-sm text-gray-300">
+        <div><b class="text-white">Nama:</b> PT Cakrawarti Waskita Digital</div>
+        <div><b class="text-white">Project Code:</b> D22457</div>
+        <div><b class="text-white">Website:</b> <a class="text-indigo-300 underline" href="https://sparkmind-v2.pages.dev/">https://sparkmind-v2.pages.dev/</a></div>
+        <div><b class="text-white">Payment Gateway:</b> Duitku (Bank Indonesia licensed)</div>
+        <div><b class="text-white">Mode:</b> <span class="badge-ok px-2 py-0.5 rounded text-xs">PRODUCTION (LIVE)</span></div>
+        <div><b class="text-white">Dokumen ini:</b> <code>/flow</code> (alias: <code>/payment-flow</code>)</div>
+      </div>
+      <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+        Dokumen ini disusun untuk memenuhi persyaratan onboarding Duitku poin #10 — "Alur/flow pembayaran pada website yang didaftarkan".
+        Halaman ini bersifat publik &amp; dapat dicetak (<i class="fas fa-print"></i> Print / PDF di kanan atas) untuk dilampirkan sebagai PDF dalam balasan email kepada Tim Onboarding Duitku.
+      </p>
+    </section>
+
+    <!-- NEXT STEP CTA — Email Draft -->
+    <section class="mb-10 step-card p-6 border-2 border-amber-500/30 bg-gradient-to-br from-amber-900/10 to-orange-900/5 no-print">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-envelope text-white text-xl"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-xs text-amber-300 font-bold uppercase tracking-wider mb-1">Next Step</div>
+          <h3 class="text-xl font-bold mb-2">Balas Email Tim Onboarding Duitku</h3>
+          <p class="text-sm text-gray-300 mb-4 leading-relaxed">
+            Setelah PDF dokumen ini di-save, lanjut ke halaman <b class="text-white">Email Draft</b> — sudah disiapkan template balasan profesional untuk Tim Onboarding Duitku, lengkap dengan checklist 10 dokumen legalitas (KTP, NIB, NPWP, Akta, Foto Lokasi, Rekening, Flow Pembayaran, dst.) yang tinggal di-copy &amp; isi placeholder.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <a href="/email-duitku" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-sm font-semibold transition shadow-lg shadow-amber-500/20"><i class="fas fa-arrow-right mr-1.5"></i>Buka Email Draft</a>
+            <a href="/pricing" class="px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-sm font-medium transition"><i class="fas fa-tags mr-1.5"></i>Test Live Pricing</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-indigo-900/40 py-6 text-center text-xs text-gray-500 no-print">
+    © <span id="yr"></span> PT Cakrawarti Waskita Digital · SparkMind × Duitku · Project D22457
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString('id-ID',{year:'numeric',month:'long',day:'numeric'});
+  </script>
+</body>
+</html>`
+
+// ============================================
+// EMAIL DUITKU PAGE — Draft email balasan ke Tim Onboarding Duitku
+// + Checklist 10 dokumen legalitas (KTP, NIB, NPWP, Akta, Foto Lokasi, dst.)
+// + Anti-phishing red-flag check
+// Route: /email-duitku  (alias: /duitku-email)
+// ============================================
+const EMAIL_DUITKU_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Email Draft — Tim Onboarding Duitku (Project D22457)</title>
+  <meta name="description" content="Draft email balasan profesional ke Tim Onboarding Duitku + checklist 10 dokumen legalitas PT Cakrawarti Waskita Digital. Copy-paste ready.">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23f59e0b'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'%3E%E2%9C%89%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body{background:#0a0a1a;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .card{background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(168,85,247,.04));border:1px solid rgba(245,158,11,.2);border-radius:16px}
+    .email-box{background:#0f0f23;border:1px solid rgba(245,158,11,.3);border-radius:12px;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:13px;line-height:1.6;color:#e5e7eb;white-space:pre-wrap;word-break:break-word}
+    .badge-ok{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+    .badge-warn{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+    .badge-info{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+    .badge-rose{background:rgba(244,63,94,.15);color:#fb7185;border:1px solid rgba(244,63,94,.3)}
+    @media print{body{background:#fff;color:#000} .no-print{display:none!important} .card{border-color:#ccc;background:#fafafa} .email-box{background:#f4f4f4;color:#000;border-color:#999}}
+    .checklist-item:hover{background:rgba(255,255,255,.03)}
+    .copied-flash{animation:flash 1s ease-out}
+    @keyframes flash{0%{background:rgba(16,185,129,.4)} 100%{background:transparent}}
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-amber-900/40 bg-[#0a0a1a]/95 backdrop-blur sticky top-0 z-30 no-print">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 font-bold">
+        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">S</span>
+        <span>SparkMind</span>
+      </a>
+      <nav class="flex items-center gap-1 text-sm">
+        <a href="/" class="hidden sm:inline-block px-3 py-1.5 rounded-lg hover:bg-white/5">Home</a>
+        <a href="/flow" class="px-3 py-1.5 rounded-lg hover:bg-white/5 text-emerald-300"><i class="fas fa-route mr-1"></i>Flow</a>
+        <a href="/email-duitku" class="px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-300"><i class="fas fa-envelope mr-1"></i>Email Draft</a>
+        <a href="/pricing" class="hidden sm:inline-block px-3 py-1.5 rounded-lg hover:bg-white/5">Pricing</a>
+        <button onclick="window.print()" class="ml-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs"><i class="fas fa-print mr-1"></i>Print / PDF</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-10">
+
+    <!-- TITLE -->
+    <section class="mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full badge-warn text-xs font-semibold mb-4">
+        <i class="fas fa-paper-plane"></i> EMAIL DRAFT — KOPI &amp; KIRIM
+      </div>
+      <h1 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">
+        Balasan Email <span class="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Tim Onboarding Duitku</span>
+      </h1>
+      <p class="text-gray-300 text-base max-w-3xl">
+        Template profesional balasan untuk verifikasi <b class="text-white">Project Code D22457</b> — atas nama
+        <b class="text-white">PT Cakrawarti Waskita Digital</b>. Tinggal isi placeholder <code class="text-amber-300">[…]</code>, copy ke Gmail/Outlook, attach 10 dokumen, kirim.
+      </p>
+    </section>
+
+    <!-- ANTI-PHISHING WARNING -->
+    <section class="mb-8 card p-5 border-rose-500/40 bg-gradient-to-br from-rose-900/15 to-amber-900/5">
+      <h2 class="text-base font-bold mb-2 flex items-center gap-2 text-rose-300"><i class="fas fa-triangle-exclamation"></i> Cek Keaslian Email Dulu (5 menit)</h2>
+      <ul class="text-sm text-gray-300 space-y-1.5 list-disc pl-5">
+        <li>Pastikan domain pengirim adalah <b class="text-white">@duitku.com</b> — bukan <code class="badge-rose px-1.5 rounded">duitku-support.com</code> / <code class="badge-rose px-1.5 rounded">duitku.co</code> / Gmail.</li>
+        <li>Login ke <a class="text-amber-300 underline" href="https://passport.duitku.com" target="_blank">passport.duitku.com</a> &amp; cek apakah notifikasi verifikasi <b>D22457</b> juga muncul di dashboard.</li>
+        <li>Konfirmasi via CS resmi Duitku: <code class="badge-info px-1.5 rounded">0838-9961-4121</code> atau live chat di <a class="text-amber-300 underline" href="https://www.duitku.com" target="_blank">duitku.com</a>.</li>
+        <li>Jangan klik link mencurigakan di email — buka langsung dari browser ke <code class="badge-info px-1.5 rounded">duitku.com</code>.</li>
+      </ul>
+    </section>
+
+    <!-- EMAIL DRAFT BOX -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-envelope-open-text text-amber-400"></i> Email Draft Profesional</h2>
+        <button id="copyEmailBtn" class="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-sm font-medium transition no-print">
+          <i class="fas fa-copy mr-1.5"></i><span id="copyLabel">Copy Email</span>
+        </button>
+      </div>
+      <div id="emailContent" class="email-box p-5">To: [email Onboarding Duitku — biasanya: onboarding@duitku.com]
+Cc: [email co-founder / internal kalau ada]
+Subject: Re: Verifikasi Project Code D22457 — Kelengkapan Dokumen Legalitas PT Cakrawarti Waskita Digital
+
+Dear Tim Onboarding Duitku,
+
+Terima kasih atas email verifikasi terkait Project Code D22457.
+
+Menanggapi permintaan upgrade akun perusahaan untuk website
+https://sparkmind-v2.pages.dev/ atas nama PT Cakrawarti Waskita Digital,
+kami akan segera melengkapi seluruh dokumen legalitas yang diminta.
+
+Sebagai referensi awal, alur/flow pembayaran pada website kami sudah
+didokumentasikan secara resmi (publik &amp; dapat diakses langsung) di:
+👉 https://sparkmind-v2.pages.dev/flow
+
+Halaman tersebut memuat:
+- High-level diagram 6 tahap (User → SparkMind → Duitku API → Duitku POP → Callback → Konfirmasi)
+- Detail teknis setiap tahap (endpoint, signature, request/response sample)
+- Screenshot &amp; mockup user journey (dengan link langsung ke /pricing &amp; /payment/return)
+- Tech stack &amp; security/compliance (TLS 1.3, IP whitelist 9 IP Duitku production,
+  MD5 signature verify, idempotent processing, PCI-DSS scope reduction)
+- Tabel referensi semua endpoint payment (GET/POST + path + tujuan + auth)
+
+Berikut status persiapan 10 dokumen yang diminta dari sisi kami:
+
+1.  KTP Penanggung Jawab — [SIAP / DALAM PROSES]
+2.  NIB RBA / SIUP + NIB — [SIAP / DALAM PROSES]
+3.  Surat Keterangan Domisili / Surat Ijin Lokasi — [SIAP / DALAM PROSES]
+4.  NPWP atas nama PT Cakrawarti Waskita Digital — [SIAP / DALAM PROSES]
+5.  Akta Pendirian + SK Kemenkumham Pendirian — [SIAP / DALAM PROSES]
+6.  Akta Perubahan Terakhir + SK Kemenkumham Perubahan
+    — [SIAP / TIDAK ADA PERUBAHAN]
+7.  Surat Sewa Lokasi — [SIAP / TIDAK BERLAKU karena lokasi milik sendiri]
+8.  Foto Lokasi (tampak luar depan &amp; dalam ruangan, bukan dari Google Maps)
+    — [SIAP / DALAM PROSES]
+9.  Foto Nomor Rekening Perusahaan (Kop E-statement / Buku Tabungan /
+    Rekening Koran / Screenshot I-Banking / M-Banking) — [SIAP / DALAM PROSES]
+10. Alur/flow pembayaran pada website yang didaftarkan
+    — SIAP (live di https://sparkmind-v2.pages.dev/flow, PDF terlampir)
+
+Estimasi pengiriman seluruh kelengkapan dokumen: paling lambat
+[TANGGAL — misal 3-5 hari kerja dari sekarang].
+
+Apabila ada format khusus, ukuran file maksimal, atau template tertentu
+yang harus kami ikuti (terutama untuk poin 8 — Foto Lokasi, dan poin 10 —
+Alur Flow Pembayaran), mohon berkenan menginformasikan agar dokumen yang
+kami kirim langsung sesuai standar Duitku dan tidak perlu revisi berulang.
+
+Pertanyaan tambahan dari kami:
+- Untuk poin 10 (Alur/flow pembayaran), apakah dokumentasi live di
+  /flow + PDF lampiran sudah cukup, atau perlu format formal tambahan
+  seperti BRD/PRD?
+- Apakah seluruh dokumen dikirim via reply email ini, atau ada portal
+  upload khusus dari Duitku?
+
+Mohon konfirmasinya, dan terima kasih atas asistensinya selama proses
+verifikasi ini.
+
+Best regards,
+
+[NAMA LO]
+[JABATAN — misal: Direktur Utama / Founder]
+PT Cakrawarti Waskita Digital
+[No. HP / WhatsApp]
+[Email]
+https://sparkmind-v2.pages.dev/
+</div>
+      <p class="text-xs text-gray-500 mt-3"><i class="fas fa-info-circle mr-1"></i> Ganti placeholder <code class="text-amber-300">[...]</code> sesuai kondisi. Status apa adanya lebih dihargai daripada di-paksa "SIAP" semua.</p>
+    </section>
+
+    <!-- 10-DOC CHECKLIST -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold mb-2 flex items-center gap-2"><i class="fas fa-clipboard-check text-emerald-400"></i> Checklist 10 Dokumen Legalitas</h2>
+      <p class="text-sm text-gray-400 mb-5">Klik checkbox untuk track progress. State disimpan di browser (localStorage).</p>
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-white/5">
+            <tr class="text-left text-xs uppercase tracking-wider text-gray-400">
+              <th class="p-3 w-10">✓</th>
+              <th class="p-3">Dokumen</th>
+              <th class="p-3 hidden md:table-cell">Di Mana Dapetinnya</th>
+              <th class="p-3 hidden lg:table-cell">Tips</th>
+            </tr>
+          </thead>
+          <tbody id="checklistBody" class="text-gray-300"></tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex items-center justify-between text-xs text-gray-500 no-print">
+        <span><i class="fas fa-database mr-1"></i> Progress disimpan otomatis di browser ini</span>
+        <button id="resetChecklist" class="text-rose-400 hover:text-rose-300"><i class="fas fa-rotate-left mr-1"></i>Reset Progress</button>
+      </div>
+    </section>
+
+    <!-- FILE NAMING CONVENTION -->
+    <section class="mb-10 card p-6">
+      <h3 class="text-lg font-bold mb-3 flex items-center gap-2"><i class="fas fa-folder-open text-indigo-400"></i> Konvensi Penamaan File (Wajib)</h3>
+      <p class="text-sm text-gray-300 mb-3">Gunakan format ini untuk semua 10 file PDF biar Tim Duitku mudah identifikasi:</p>
+      <div class="email-box p-4 mb-3"><code>[NoUrutan]_[NamaDokumen]_PT-CakrawartiWaskitaDigital.pdf</code></div>
+      <p class="text-xs text-gray-400 mb-2">Contoh:</p>
+      <ul class="text-xs text-gray-400 space-y-1 list-disc pl-5 font-mono">
+        <li>01_KTP-Penanggung-Jawab_PT-CakrawartiWaskitaDigital.pdf</li>
+        <li>02_NIB-RBA_PT-CakrawartiWaskitaDigital.pdf</li>
+        <li>04_NPWP-Perusahaan_PT-CakrawartiWaskitaDigital.pdf</li>
+        <li>10_Alur-Flow-Pembayaran_PT-CakrawartiWaskitaDigital.pdf</li>
+      </ul>
+      <p class="text-xs text-amber-300 mt-3"><i class="fas fa-lightbulb mr-1"></i> <b>Pro tip:</b> Bundle semua 10 PDF jadi 1 file ZIP: <code>D22457_PT-CakrawartiWaskitaDigital_Onboarding-Documents.zip</code> — biar inbox Tim Duitku rapi.</p>
+    </section>
+
+    <!-- ACTION PLAN -->
+    <section class="mb-10 card p-6 bg-gradient-to-br from-emerald-900/15 to-indigo-900/10 border-emerald-500/30">
+      <h3 class="text-lg font-bold mb-3 flex items-center gap-2"><i class="fas fa-bullseye text-emerald-400"></i> Action Plan Hari Ini</h3>
+      <ol class="text-sm text-gray-300 space-y-2 list-decimal pl-6">
+        <li><b>Verifikasi keaslian email</b> (5 menit) — login dashboard Duitku, cek notif Project D22457.</li>
+        <li><b>Kumpulin dokumen yang udah ada</b> — KTP, NPWP, Akta, NIB (biasanya sudah di folder PT).</li>
+        <li><b>Save PDF flow:</b> buka <a href="/flow" class="text-amber-300 underline">/flow</a> → klik tombol <span class="badge-warn px-2 py-0.5 rounded text-xs">Print / PDF</span> di kanan atas → save dengan nama <code>10_Alur-Flow-Pembayaran_PT-CakrawartiWaskitaDigital.pdf</code>.</li>
+        <li><b>Foto lokasi</b> (luar + dalam) — pakai HP, resolusi tinggi, pencahayaan cukup. Hindari Google Maps.</li>
+        <li><b>Screenshot mBanking</b> — sensor saldo kalau perlu, pastikan nama PT &amp; nomor rekening jelas.</li>
+        <li><b>Copy email draft di atas</b> → paste ke Gmail/Outlook → isi placeholder → attach 10 PDF (atau ZIP) → kirim.</li>
+        <li><b>Track progress</b> di checklist halaman ini sampai semua ✓.</li>
+      </ol>
+    </section>
+
+    <!-- LINKS BACK -->
+    <section class="mb-10 grid sm:grid-cols-2 gap-4 no-print">
+      <a href="/flow" class="card p-5 hover:border-emerald-400 transition group">
+        <div class="text-xs text-gray-400 mb-1">📄 Dokumen poin #10</div>
+        <div class="font-bold text-base group-hover:text-emerald-300">Alur / Flow Pembayaran →</div>
+        <p class="text-xs text-gray-400 mt-1">Buka, klik Print/PDF, attach ke email.</p>
+      </a>
+      <a href="/pricing" class="card p-5 hover:border-indigo-400 transition group">
+        <div class="text-xs text-gray-400 mb-1">💳 Test live payment</div>
+        <div class="font-bold text-base group-hover:text-indigo-300">Halaman Pricing →</div>
+        <p class="text-xs text-gray-400 mt-1">Tunjukkan ke Tim Duitku kalau payment flow sudah live.</p>
+      </a>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-amber-900/40 py-6 text-center text-xs text-gray-500 no-print">
+    © <span id="yr"></span> PT Cakrawarti Waskita Digital · SparkMind × Duitku · Project D22457 · Internal Document
+  </footer>
+
+  <script>
+    // Year + last updated
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    // ====== 10-DOC CHECKLIST ======
+    const DOCS = [
+      { n:1,  name:'KTP Penanggung Jawab',                   where:'KTP fisik direktur/penanggung jawab PT', tip:'Scan/foto berwarna, NIK & masa berlaku jelas. Nama harus persis sama dengan akta.' },
+      { n:2,  name:'NIB RBA / SIUP + NIB',                   where:'OSS RBA (oss.go.id) — login akun perusahaan', tip:'Download PDF resmi dari OSS, jangan screenshot. KBLI 62xxx untuk software/AI.' },
+      { n:3,  name:'Surat Keterangan Domisili / Ijin Lokasi',where:'Kelurahan setempat ATAU virtual office provider', tip:'Kalau pakai VO, minta Surat Domisili + Perjanjian Sewa dari provider.' },
+      { n:4,  name:'NPWP Perusahaan',                        where:'DJP / Coretax atas nama PT Cakrawarti Waskita Digital', tip:'BUKAN NPWP pribadi. Nama PT identik dengan akta.' },
+      { n:5,  name:'Akta Pendirian + SK Kemenkumham',         where:'Notaris yang dulu bikin PT', tip:'Minta softcopy PDF kedua dokumen. SK Kemenkumham format AHU-xxx.' },
+      { n:6,  name:'Akta Perubahan Terakhir + SK',            where:'Notaris (kalau pernah ada perubahan)', tip:'Kalau belum pernah perubahan, jelasin di email. Jangan dipaksa bikin.' },
+      { n:7,  name:'Surat Sewa Lokasi',                      where:'Pemilik tempat usaha / virtual office', tip:'Hanya wajib kalau sewa atau VO. Milik sendiri/rumah pribadi → "tidak berlaku".' },
+      { n:8,  name:'Foto Lokasi (luar + dalam)',             where:'Foto langsung pakai HP, BUKAN Google Maps', tip:'Min. 2 foto: (a) tampak depan (plang/alamat), (b) interior ruangan kerja.' },
+      { n:9,  name:'Foto Nomor Rekening Perusahaan',         where:'Kop e-statement / Buku Tabungan / Rekening Koran / iBanking / mBanking', tip:'Nama PT (BUKAN pribadi) + nomor rekening + nama bank harus jelas. Saldo boleh disensor.' },
+      { n:10, name:'Alur/Flow Pembayaran di Website',         where:'Live di /flow → Print/PDF', tip:'PDF sudah ready. Sertakan link live https://sparkmind-v2.pages.dev/flow di email.' },
+    ];
+    const STORAGE_KEY = 'duitku_d22457_checklist_v1';
+    function loadProgress(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); }catch{return{};} }
+    function saveProgress(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch{} }
+    function renderChecklist(){
+      const state = loadProgress();
+      const tbody = document.getElementById('checklistBody');
+      tbody.innerHTML = DOCS.map(d => {
+        const checked = state['d'+d.n] ? 'checked' : '';
+        const opacity = state['d'+d.n] ? 'opacity-50 line-through' : '';
+        return '<tr class="checklist-item border-t border-white/5 transition">' +
+          '<td class="p-3 align-top"><input type="checkbox" data-id="d'+d.n+'" class="w-4 h-4 accent-emerald-500" '+checked+'></td>' +
+          '<td class="p-3 align-top '+opacity+'"><div class="font-semibold text-white">'+d.n+'. '+d.name+'</div><div class="md:hidden text-xs text-gray-500 mt-1">'+d.where+'</div></td>' +
+          '<td class="p-3 align-top text-xs text-gray-400 hidden md:table-cell '+opacity+'">'+d.where+'</td>' +
+          '<td class="p-3 align-top text-xs text-gray-500 hidden lg:table-cell '+opacity+'">'+d.tip+'</td>' +
+        '</tr>';
+      }).join('');
+      tbody.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const s = loadProgress();
+          s[cb.dataset.id] = cb.checked;
+          saveProgress(s);
+          renderChecklist();
+        });
+      });
+    }
+    renderChecklist();
+    document.getElementById('resetChecklist').addEventListener('click', () => {
+      if(confirm('Reset semua progress checklist?')){ saveProgress({}); renderChecklist(); }
+    });
+
+    // ====== COPY EMAIL ======
+    document.getElementById('copyEmailBtn').addEventListener('click', async () => {
+      const txt = document.getElementById('emailContent').innerText;
+      try {
+        await navigator.clipboard.writeText(txt);
+        const lbl = document.getElementById('copyLabel');
+        const orig = lbl.textContent;
+        lbl.textContent = '✓ Copied!';
+        document.getElementById('emailContent').classList.add('copied-flash');
+        setTimeout(() => {
+          lbl.textContent = orig;
+          document.getElementById('emailContent').classList.remove('copied-flash');
+        }, 1500);
+      } catch(e) {
+        alert('Gagal copy. Manual select & copy aja: select all teks email box.');
+      }
+    });
+  </script>
+</body>
+</html>`
+
+// ============================================
 // CLARITY PAGE — UI for Painkiller Module
 // ============================================
 const CLARITY_HTML = `<!DOCTYPE html>
@@ -3164,6 +3891,7 @@ const CLARITY_HTML = `<!DOCTYPE html>
         </div>
       </a>
       <div class="flex items-center gap-2">
+        <a href="/flow" class="hidden md:inline-block text-sm text-emerald-300 hover:text-white px-3 py-1.5 transition" title="Alur Pembayaran"><i class="fas fa-route mr-1"></i>Flow</a>
         <a href="/app" class="hidden sm:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5">App</a>
         <a href="/pricing" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg">Upgrade</a>
       </div>
