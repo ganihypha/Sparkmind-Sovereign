@@ -169,6 +169,10 @@ app.get('/payment-flow', (c) => { noCacheHTML(c); return c.html(PAYMENT_FLOW_HTM
 // Email draft balasan ke Tim Onboarding Duitku (copy-paste ready) + 10-dok checklist
 app.get('/email-duitku', (c) => { noCacheHTML(c); return c.html(EMAIL_DUITKU_HTML) })
 app.get('/duitku-email', (c) => { noCacheHTML(c); return c.html(EMAIL_DUITKU_HTML) })
+app.get('/legal', (c) => { noCacheHTML(c); return c.html(LEGAL_HTML) })
+app.get('/terms', (c) => c.redirect('/legal#tos'))
+app.get('/privacy', (c) => c.redirect('/legal#privacy'))
+app.get('/refund', (c) => c.redirect('/legal#refund'))
 app.get('/manifest.webmanifest', (c) => {
   c.header('Content-Type', 'application/manifest+json')
   return c.body(JSON.stringify({
@@ -1136,6 +1140,7 @@ const LANDING_HTML = `<!DOCTYPE html>
         <a href="/clarity" class="hidden sm:inline-block text-sm text-violet-300 hover:text-white px-3 py-1.5 transition"><i class="fas fa-heart-pulse mr-1"></i>Clarity</a>
         <a href="/pricing" class="hidden sm:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5 transition">Pricing</a>
         <a href="/flow" class="hidden md:inline-block text-sm text-emerald-300 hover:text-white px-3 py-1.5 transition" title="Alur Pembayaran (Duitku Onboarding)"><i class="fas fa-route mr-1"></i>Payment Flow</a>
+        <a href="/legal" class="hidden md:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5 transition" title="Legal &amp; Compliance"><i class="fas fa-gavel mr-1"></i>Legal</a>
         <a href="/app" class="px-4 py-2 btn-primary text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-500/30">Buka App <i class="fas fa-arrow-right ml-1 text-xs"></i></a>
       </div>
     </div>
@@ -1387,9 +1392,124 @@ const PRICING_HTML = `<!DOCTYPE html>
       </button>
     </div>
 
+    <!-- ============================================ -->
+    <!-- ENTERPRISE-GRADE CONTACT SUPPORT (DUITKU REQ) -->
+    <!-- Required by Duitku Onboarding Compliance:     -->
+    <!--   No. HP, Email, & Alamat Usaha               -->
+    <!-- ============================================ -->
+    <section id="contact-support" aria-labelledby="contact-support-title" class="mt-16 max-w-5xl mx-auto text-left scroll-mt-20">
+      <div class="text-center mb-6">
+        <span class="inline-block px-3 py-1 text-[10px] uppercase tracking-widest font-bold rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+          <i class="fas fa-headset mr-1"></i> Customer Support · Verified Merchant
+        </span>
+        <h2 id="contact-support-title" class="mt-3 text-2xl sm:text-3xl font-black text-white">Hubungi <span class="gradient-text">Tim Support SparkMind</span></h2>
+        <p class="mt-2 text-sm text-gray-400 max-w-2xl mx-auto">
+          Resmi terdaftar — <b>PT. Waskita Cakrawarti Digital</b>. Tim support kami merespon Senin–Sabtu 08.00–21.00 WIB. Untuk transaksi pembayaran (Duitku), respon prioritas &lt;2 jam pada jam kerja.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <!-- PHONE / WA -->
+        <article class="glass rounded-2xl p-5 border-emerald-500/20 hover:border-emerald-500/50 transition">
+          <div class="flex items-start gap-3">
+            <div class="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-300 text-lg shrink-0">
+              <i class="fas fa-phone-alt"></i>
+            </div>
+            <div class="min-w-0">
+              <p class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Customer Support · Hotline</p>
+              <a href="tel:+6285643383832" class="block mt-1 text-base font-bold text-white hover:text-emerald-300 break-all">+62 856-4338-3832</a>
+              <p class="text-[11px] text-gray-400 mt-1">No. HP / WhatsApp aktif</p>
+              <a href="https://wa.me/6285643383832?text=Halo%20Tim%20SparkMind%2C%20saya%20butuh%20bantuan%20mengenai%20layanan%20Anda."
+                 target="_blank" rel="noopener noreferrer"
+                 class="inline-block mt-3 text-xs font-semibold text-emerald-300 hover:text-white">
+                <i class="fab fa-whatsapp mr-1"></i> Chat via WhatsApp →
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- EMAIL -->
+        <article class="glass rounded-2xl p-5 border-indigo-500/20 hover:border-indigo-500/50 transition">
+          <div class="flex items-start gap-3">
+            <div class="w-11 h-11 rounded-xl bg-indigo-500/15 flex items-center justify-center text-indigo-300 text-lg shrink-0">
+              <i class="fas fa-envelope-open-text"></i>
+            </div>
+            <div class="min-w-0">
+              <p class="text-[10px] uppercase tracking-wider text-indigo-300 font-bold">Email Support · Resmi</p>
+              <a href="mailto:sparkmind.support@gmail.com" class="block mt-1 text-base font-bold text-white hover:text-indigo-300 break-all">sparkmind.support@gmail.com</a>
+              <p class="text-[11px] text-gray-400 mt-1">Email resmi · ticket support, refund &amp; compliance</p>
+              <a href="mailto:sparkmind.support@gmail.com?subject=SparkMind%20Support%20Request"
+                 class="inline-block mt-3 text-xs font-semibold text-indigo-300 hover:text-white">
+                <i class="fas fa-paper-plane mr-1"></i> Kirim email →
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- ADDRESS -->
+        <article class="glass rounded-2xl p-5 border-amber-500/20 hover:border-amber-500/50 transition">
+          <div class="flex items-start gap-3">
+            <div class="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-300 text-lg shrink-0">
+              <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="min-w-0">
+              <p class="text-[10px] uppercase tracking-wider text-amber-300 font-bold">Alamat Usaha · Kantor Pusat</p>
+              <address class="not-italic mt-1 text-sm font-semibold text-white leading-relaxed">
+                Sokaraja, Kabupaten Banyumas,<br>
+                Purwokerto, Jawa Tengah,<br>
+                Indonesia 53181
+              </address>
+              <p class="text-[11px] text-gray-400 mt-2">PT. Waskita Cakrawarti Digital</p>
+              <a href="https://www.google.com/maps/search/?api=1&query=Sokaraja+Banyumas+Purwokerto+Jawa+Tengah"
+                 target="_blank" rel="noopener noreferrer"
+                 class="inline-block mt-2 text-xs font-semibold text-amber-300 hover:text-white">
+                <i class="fas fa-external-link-alt mr-1"></i> Buka di Google Maps →
+              </a>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- LEGAL ENTITY ROW -->
+      <div class="mt-6 glass rounded-2xl p-5 border-violet-500/20">
+        <div class="grid md:grid-cols-2 gap-5 items-start">
+          <div>
+            <p class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-2">
+              <i class="fas fa-building mr-1"></i> Legal Entity · Badan Hukum
+            </p>
+            <p class="text-base font-bold text-white">PT. Waskita Cakrawarti Digital</p>
+            <p class="text-xs text-gray-400 mt-1">
+              Bidang Usaha: <b class="text-gray-200">AI Service · Portal Web Dan/Atau Platform Digital Dengan Tujuan Komersial</b><br>
+              KBLI <b class="text-gray-200">63122</b> · Tingkat Risiko: <b class="text-emerald-300">Rendah</b> · Skala: <b class="text-emerald-300">Mikro</b>
+            </p>
+          </div>
+          <div>
+            <p class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-2">
+              <i class="fas fa-id-card mr-1"></i> Perizinan &amp; Compliance
+            </p>
+            <ul class="text-xs text-gray-300 space-y-1.5">
+              <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i> NIB terdaftar di OSS RBA — beranda.oss.go.id</li>
+              <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i> NPWP Perusahaan aktif</li>
+              <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i> Payment Gateway: Duitku (BI-licensed) Merchant <code class="px-1 py-0.5 bg-white/5 rounded text-[10px]">D22457</code></li>
+              <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i> Patuh UU PDP (UU 27/2022) &amp; UU ITE (UU 19/2016)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+          <a href="/legal" class="text-xs font-semibold text-violet-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+            <i class="fas fa-gavel mr-1"></i> Halaman Legal Lengkap
+          </a>
+          <a href="/legal#tos" class="text-xs font-semibold text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Syarat &amp; Ketentuan</a>
+          <a href="/legal#privacy" class="text-xs font-semibold text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Privacy Policy</a>
+          <a href="/legal#refund" class="text-xs font-semibold text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Refund Policy</a>
+          <a href="/flow" class="text-xs font-semibold text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Alur Pembayaran</a>
+        </div>
+      </div>
+    </section>
+
     <div class="mt-10 text-xs text-gray-500">
-      <p><i class="fas fa-shield-alt text-emerald-400"></i> Secured by <b>Duitku</b> — Bank Indonesia licensed payment gateway</p>
-      <p class="mt-2">📧 hello@sparkmind.app · 🇮🇩 Made with love in Indonesia</p>
+      <p><i class="fas fa-shield-alt text-emerald-400"></i> Secured by <b>Duitku</b> — Bank Indonesia licensed payment gateway · Merchant <b>D22457</b></p>
+      <p class="mt-2">📧 sparkmind.support@gmail.com · 📞 +62 856-4338-3832 · 🇮🇩 Sokaraja, Banyumas, Jawa Tengah</p>
     </div>
   </section>
 
@@ -4061,6 +4181,331 @@ const CLARITY_HTML = `<!DOCTYPE html>
       if (act === 'swot')     { const v = $('#swot-input').value.trim();     if(!v){alert('Konteks hubungan dulu');return;}     call('/api/clarity/relationship-swot', { context: v }, 'swot-out', btn); }
     });
   })();
+  </script>
+</body>
+</html>`
+
+// ============================================
+// LEGAL & COMPLIANCE PAGE
+// Enterprise-grade legal pack for Duitku verification:
+// - Terms of Service (Syarat & Ketentuan)
+// - Privacy Policy (Kebijakan Privasi · UU PDP 27/2022)
+// - Refund Policy (7-day money-back)
+// - Acceptable Use Policy
+// - Legal Entity disclosure (PT. Waskita Cakrawarti Digital)
+// - Contact / DPO information
+// ============================================
+const LEGAL_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal & Compliance — SparkMind V7.3 (PT. Waskita Cakrawarti Digital)</title>
+  <meta name="description" content="Halaman legal & compliance SparkMind: Syarat & Ketentuan, Privacy Policy (UU PDP 27/2022), Refund Policy, Acceptable Use, dan informasi badan hukum PT. Waskita Cakrawarti Digital." />
+  <meta name="robots" content="index,follow" />
+  <link rel="canonical" href="https://sparkmind-v2.pages.dev/legal" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    body { background:#0a0a0f; color:#e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif; }
+    .glass { background: rgba(255,255,255,.03); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.08); }
+    .gradient-text { background: linear-gradient(90deg,#a78bfa,#60a5fa,#34d399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .section-anchor { scroll-margin-top: 84px; }
+    h2.legal-h { font-size: 1.5rem; font-weight: 800; color:#fff; margin-bottom:.75rem; }
+    h3.legal-sub { font-size: 1rem; font-weight: 700; color:#fde68a; margin-top:1.25rem; margin-bottom:.5rem; }
+    .legal-body p { color:#cbd5e1; line-height:1.7; margin-bottom:.75rem; font-size: 14.5px; }
+    .legal-body ul { list-style: disc; padding-left: 1.25rem; color:#cbd5e1; margin-bottom:.75rem; }
+    .legal-body li { margin-bottom:.4rem; line-height:1.65; font-size: 14px; }
+    .legal-body code { background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 4px; font-size: 12px; color:#fbbf24; }
+    .toc a { color:#c4b5fd; }
+    .toc a:hover { color:#fff; }
+    .pill { display:inline-flex; align-items:center; gap:.4rem; font-size:11px; font-weight:700; padding:.25rem .6rem; border-radius:9999px; }
+    @media print { .no-print { display:none !important; } body { background:#fff; color:#000; } .glass { background:#fff; border-color:#ddd; } .legal-body p, .legal-body li { color:#222; } h2.legal-h, h3.legal-sub { color:#000; } }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- NAV -->
+  <nav class="sticky top-0 z-40 backdrop-blur-md bg-[#0a0a0f]/80 border-b border-white/5 no-print">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">S</div>
+        <span class="text-base font-bold tracking-tight">SparkMind <span class="text-[10px] text-violet-400 font-mono ml-0.5">V7.3</span></span>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="/pricing" class="hidden sm:inline-block text-sm text-gray-400 hover:text-white px-3 py-1.5 transition">Pricing</a>
+        <a href="/flow" class="hidden sm:inline-block text-sm text-emerald-300 hover:text-white px-3 py-1.5 transition"><i class="fas fa-route mr-1"></i>Flow</a>
+        <button onclick="window.print()" class="text-sm text-gray-400 hover:text-white px-3 py-1.5 transition" title="Print / Save as PDF"><i class="fas fa-print mr-1"></i>Print</button>
+        <a href="/app" class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-sm font-semibold rounded-lg">Buka App <i class="fas fa-arrow-right ml-1 text-xs"></i></a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    <!-- HEADER -->
+    <header class="text-center mb-10">
+      <span class="pill bg-violet-500/10 text-violet-300 border border-violet-500/20"><i class="fas fa-gavel"></i> Legal & Compliance Pack</span>
+      <h1 class="mt-4 text-3xl sm:text-5xl font-black tracking-tight text-white">Legal · <span class="gradient-text">Compliance · Trust</span></h1>
+      <p class="mt-3 text-sm sm:text-base text-gray-400 max-w-2xl mx-auto">
+        Halaman ini berisi seluruh dokumen legal SparkMind — disusun selaras <b class="text-white">UU PDP 27/2022</b>, <b class="text-white">UU ITE 19/2016</b>, dan persyaratan onboarding <b class="text-white">Duitku (Bank Indonesia licensed)</b>.
+      </p>
+      <p class="mt-2 text-xs text-gray-500">Terakhir diperbarui: <span id="last-updated">7 Mei 2026</span> · Versi 2.0 (Enterprise)</p>
+    </header>
+
+    <!-- LEGAL ENTITY DISCLOSURE -->
+    <section id="entity" class="section-anchor mb-10 glass rounded-2xl p-6 border-emerald-500/20">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-300 text-xl shrink-0"><i class="fas fa-building-shield"></i></div>
+        <div class="flex-1">
+          <p class="text-[10px] uppercase tracking-widest text-emerald-300 font-bold">Legal Entity Disclosure</p>
+          <h2 class="text-2xl font-bold text-white mt-1">PT. Waskita Cakrawarti Digital</h2>
+          <div class="grid sm:grid-cols-2 gap-4 mt-4 text-sm">
+            <div>
+              <p class="text-[11px] uppercase text-gray-500 font-bold mb-1">Bidang Usaha (KBLI)</p>
+              <p class="text-gray-200">63122 — AI Service · Portal Web Dan/Atau Platform Digital Dengan Tujuan Komersial</p>
+              <p class="text-xs text-gray-400 mt-1">Tingkat Risiko: <b class="text-emerald-300">Rendah</b> · Skala: <b class="text-emerald-300">Mikro</b></p>
+            </div>
+            <div>
+              <p class="text-[11px] uppercase text-gray-500 font-bold mb-1">Perizinan & Compliance</p>
+              <ul class="space-y-1 text-gray-300 text-xs">
+                <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i>NIB terdaftar OSS RBA (beranda.oss.go.id)</li>
+                <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i>NPWP Perusahaan aktif</li>
+                <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i>Payment Gateway: Duitku (BI-licensed) <code>D22457</code></li>
+                <li><i class="fas fa-check-circle text-emerald-400 mr-1.5"></i>Patuh UU PDP 27/2022 & UU ITE 19/2016</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/5 grid sm:grid-cols-3 gap-3 text-xs">
+            <div><p class="text-gray-500 uppercase text-[10px] font-bold">Alamat</p><address class="not-italic text-gray-200 mt-1">Sokaraja, Kab. Banyumas,<br>Purwokerto, Jawa Tengah 53181</address></div>
+            <div><p class="text-gray-500 uppercase text-[10px] font-bold">Email Resmi</p><a href="mailto:sparkmind.support@gmail.com" class="text-indigo-300 hover:text-white block mt-1">sparkmind.support@gmail.com</a></div>
+            <div><p class="text-gray-500 uppercase text-[10px] font-bold">Hotline / WA</p><a href="tel:+6285643383832" class="text-emerald-300 hover:text-white block mt-1">+62 856-4338-3832</a></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLE OF CONTENTS -->
+    <section class="mb-10 glass rounded-2xl p-5 toc no-print">
+      <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-3"><i class="fas fa-list mr-1"></i>Daftar Isi</p>
+      <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+        <a href="#tos" class="hover:underline">1. Syarat & Ketentuan</a>
+        <a href="#privacy" class="hover:underline">2. Privacy Policy (UU PDP)</a>
+        <a href="#refund" class="hover:underline">3. Refund Policy</a>
+        <a href="#aup" class="hover:underline">4. Acceptable Use Policy</a>
+        <a href="#dpa" class="hover:underline">5. Data Processing & Security</a>
+        <a href="#contact" class="hover:underline">6. Kontak / DPO</a>
+      </div>
+    </section>
+
+    <!-- 1. TERMS OF SERVICE -->
+    <section id="tos" class="section-anchor mb-10 glass rounded-2xl p-6">
+      <h2 class="legal-h"><i class="fas fa-file-contract text-violet-400 mr-2"></i>1. Syarat & Ketentuan (Terms of Service)</h2>
+      <div class="legal-body">
+        <p>Dengan mengakses atau menggunakan SparkMind ("Layanan"), Anda menyetujui Syarat & Ketentuan ini secara penuh. Layanan disediakan oleh <b>PT. Waskita Cakrawarti Digital</b> ("Kami").</p>
+
+        <h3 class="legal-sub">1.1 Definisi</h3>
+        <ul>
+          <li><b>Layanan</b>: platform AI strategic guide & clarity coach SparkMind di <code>sparkmind-v2.pages.dev</code> dan domain afiliasi.</li>
+          <li><b>Pengguna</b>: pihak yang membuka, mendaftar, atau membayar paket Layanan.</li>
+          <li><b>Konten Pengguna</b>: data input (jurnal, prompt, profil) yang Anda submit.</li>
+          <li><b>Paket Berbayar</b>: Pro, Team, Lifetime, dan Painkiller pack.</li>
+        </ul>
+
+        <h3 class="legal-sub">1.2 Akun & Eligibility</h3>
+        <ul>
+          <li>Pengguna minimal berusia <b>17 tahun</b> atau memiliki izin wali yang sah.</li>
+          <li>Anda wajib memberikan data yang akurat (email, nama, no. HP) saat checkout.</li>
+          <li>Anda bertanggung jawab atas keamanan akun & device Anda.</li>
+        </ul>
+
+        <h3 class="legal-sub">1.3 Lisensi Penggunaan</h3>
+        <p>Kami memberikan lisensi <b>non-eksklusif, non-transferable, terbatas</b> untuk menggunakan Layanan sesuai paket yang dibeli. Lisensi tidak mencakup re-sell, white-label, atau scraping massal output AI.</p>
+
+        <h3 class="legal-sub">1.4 Pembayaran & Billing</h3>
+        <ul>
+          <li>Semua transaksi diproses oleh <b>Duitku (PT Duta Industan Berdikari)</b> — payment gateway berlisensi Bank Indonesia. Merchant code: <code>D22457</code>.</li>
+          <li>Mata uang: <b>IDR</b>. Pajak (PPN) sudah termasuk dalam harga tertera kecuali dinyatakan lain.</li>
+          <li>Paket bulanan/tahunan tidak auto-renew otomatis kecuali Anda mengaktifkannya secara eksplisit.</li>
+          <li>Lifetime Deal berlaku selama Layanan masih beroperasi (commercially reasonable lifetime, minimum 5 tahun sejak pembelian).</li>
+        </ul>
+
+        <h3 class="legal-sub">1.5 Hak Kekayaan Intelektual</h3>
+        <p>Brand "SparkMind", logo, kode sumber, dan UI adalah milik Kami. Konten Pengguna tetap milik Anda — Kami hanya memproses untuk menjalankan Layanan.</p>
+
+        <h3 class="legal-sub">1.6 Disclaimer Coaching</h3>
+        <p>SparkMind <b>BUKAN pengganti psikolog, psikiater, atau profesional medis</b>. Untuk darurat psikologis hubungi <b>Into the Light Indonesia (119 ext 8)</b> atau RSJ terdekat.</p>
+
+        <h3 class="legal-sub">1.7 Pemutusan</h3>
+        <p>Kami berhak menangguhkan atau menghentikan akun yang melanggar Acceptable Use Policy (lihat §4). Refund tetap mengikuti kebijakan §3 jika berlaku.</p>
+
+        <h3 class="legal-sub">1.8 Hukum yang Berlaku</h3>
+        <p>Tunduk pada hukum Republik Indonesia. Penyelesaian sengketa dilakukan secara musyawarah; bila gagal, melalui Pengadilan Negeri Banyumas atau BANI sesuai kesepakatan.</p>
+      </div>
+    </section>
+
+    <!-- 2. PRIVACY POLICY -->
+    <section id="privacy" class="section-anchor mb-10 glass rounded-2xl p-6">
+      <h2 class="legal-h"><i class="fas fa-user-shield text-emerald-400 mr-2"></i>2. Kebijakan Privasi (UU PDP 27/2022)</h2>
+      <div class="legal-body">
+        <p>Kami berkomitmen melindungi data pribadi Anda sesuai <b>UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP)</b>.</p>
+
+        <h3 class="legal-sub">2.1 Data yang Kami Kumpulkan</h3>
+        <ul>
+          <li><b>Identifikasi</b>: nama, email, nomor telepon (saat checkout).</li>
+          <li><b>Transaksi</b>: invoice ID, plan, jumlah, status pembayaran (via Duitku).</li>
+          <li><b>Konten Pengguna</b>: input AI prompts, jurnal, goal — disimpan di local storage browser secara default.</li>
+          <li><b>Teknis</b>: IP address (untuk verifikasi callback Duitku), user-agent, timestamp.</li>
+        </ul>
+
+        <h3 class="legal-sub">2.2 Dasar Hukum Pemrosesan</h3>
+        <ul>
+          <li><b>Persetujuan</b> (Pasal 20 UU PDP) — saat Anda klik "Lanjut Bayar" / "Saya Setuju".</li>
+          <li><b>Pelaksanaan kontrak</b> — untuk memberikan Layanan yang Anda beli.</li>
+          <li><b>Kewajiban hukum</b> — pelaporan pajak & audit Duitku.</li>
+        </ul>
+
+        <h3 class="legal-sub">2.3 Hak Subjek Data (Pasal 5–13 UU PDP)</h3>
+        <ul>
+          <li>Hak akses, koreksi, hapus, & portabilitas data.</li>
+          <li>Hak menarik persetujuan kapan saja.</li>
+          <li>Hak komplain ke <b>Lembaga PDP</b> (jika dibentuk) atau Kemenkominfo.</li>
+          <li>Untuk eksekusi: kirim email ke <a href="mailto:sparkmind.support@gmail.com" class="text-indigo-300">sparkmind.support@gmail.com</a> subjek "PDP Request".</li>
+        </ul>
+
+        <h3 class="legal-sub">2.4 Retensi Data</h3>
+        <ul>
+          <li>Data transaksi: <b>10 tahun</b> (kewajiban pembukuan & audit Duitku).</li>
+          <li>Data akun aktif: selama akun aktif + 12 bulan grace.</li>
+          <li>Konten Pengguna lokal: di-control sepenuhnya oleh Anda (browser local storage).</li>
+        </ul>
+
+        <h3 class="legal-sub">2.5 Pihak Ketiga (Sub-Processor)</h3>
+        <ul>
+          <li><b>Duitku</b> — payment processing (BI-licensed).</li>
+          <li><b>Cloudflare</b> — hosting & CDN (data residency: edge global, encrypted in transit & at rest).</li>
+          <li><b>OpenAI / Anthropic</b> — LLM inference (paket Pro). Prompt diproses ephemeral & tidak digunakan untuk training (zero-retention API).</li>
+        </ul>
+
+        <h3 class="legal-sub">2.6 Transfer Lintas Batas</h3>
+        <p>Beberapa sub-processor (OpenAI, Cloudflare) memproses data di luar Indonesia. Transfer dilindungi <b>Standard Contractual Clauses</b> & enkripsi TLS 1.3+.</p>
+
+        <h3 class="legal-sub">2.7 Keamanan</h3>
+        <ul>
+          <li>HTTPS / TLS 1.3 untuk seluruh trafik.</li>
+          <li>Whitelist IP callback Duitku (9 IP terdaftar).</li>
+          <li>MD5 signature verification untuk callback payment.</li>
+          <li>No password storage di server (passwordless / OTP-based).</li>
+        </ul>
+
+        <h3 class="legal-sub">2.8 Anak di Bawah Umur</h3>
+        <p>Layanan tidak ditujukan untuk pengguna di bawah 17 tahun tanpa izin wali. Data anak akan dihapus jika terdeteksi.</p>
+      </div>
+    </section>
+
+    <!-- 3. REFUND POLICY -->
+    <section id="refund" class="section-anchor mb-10 glass rounded-2xl p-6">
+      <h2 class="legal-h"><i class="fas fa-rotate-left text-amber-400 mr-2"></i>3. Refund Policy</h2>
+      <div class="legal-body">
+        <h3 class="legal-sub">3.1 Money-Back Guarantee 7 Hari</h3>
+        <p>Untuk paket <b>Pro Monthly, Pro Yearly, Team, Lifetime</b> — Anda berhak refund <b>100%</b> dalam <b>7 hari kalender</b> sejak tanggal pembayaran berhasil.</p>
+
+        <h3 class="legal-sub">3.2 Pengecualian</h3>
+        <ul>
+          <li>Painkiller pack one-shot (Rp 29.000 – Rp 59.000) bersifat <b>non-refundable</b> setelah output AI terkirim.</li>
+          <li>Pelanggaran berat AUP (lihat §4) — tidak ada refund.</li>
+          <li>Refund tidak berlaku untuk biaya admin/payment gateway (~ Rp 5.000) jika sudah ditarik Duitku.</li>
+        </ul>
+
+        <h3 class="legal-sub">3.3 Cara Klaim Refund</h3>
+        <ul>
+          <li>Kirim email ke <a href="mailto:sparkmind.support@gmail.com" class="text-indigo-300">sparkmind.support@gmail.com</a> subjek <code>[REFUND] {merchantOrderId}</code>.</li>
+          <li>Sertakan: email pembayaran, no. HP, alasan singkat (untuk perbaikan product).</li>
+          <li>Atau WA <a href="https://wa.me/6285643383832" class="text-emerald-300">+62 856-4338-3832</a>.</li>
+        </ul>
+
+        <h3 class="legal-sub">3.4 SLA Refund</h3>
+        <ul>
+          <li>Konfirmasi: ≤ 1×24 jam kerja.</li>
+          <li>Pengembalian dana: <b>3–14 hari kerja</b> tergantung bank tujuan (sesuai SLA Duitku).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4. ACCEPTABLE USE POLICY -->
+    <section id="aup" class="section-anchor mb-10 glass rounded-2xl p-6">
+      <h2 class="legal-h"><i class="fas fa-ban text-rose-400 mr-2"></i>4. Acceptable Use Policy (AUP)</h2>
+      <div class="legal-body">
+        <p>Anda <b>DILARANG</b> menggunakan Layanan untuk:</p>
+        <ul>
+          <li>Aktivitas ilegal (penipuan, money laundering, narkoba, terorisme).</li>
+          <li>Manipulasi, stalking, harassment, atau menembus block/privacy orang lain.</li>
+          <li>Generate konten kekerasan eksplisit, CSAM, atau hate speech yang melanggar UU ITE.</li>
+          <li>Reverse engineering, scraping massal, atau abuse rate limit.</li>
+          <li>Resell akses Layanan tanpa kontrak partner resmi.</li>
+        </ul>
+        <p class="mt-3">Pelanggaran berakibat <b>suspend instan tanpa refund</b> dan, bila perlu, pelaporan ke Polri / BSSN.</p>
+      </div>
+    </section>
+
+    <!-- 5. DPA -->
+    <section id="dpa" class="section-anchor mb-10 glass rounded-2xl p-6">
+      <h2 class="legal-h"><i class="fas fa-shield-halved text-cyan-400 mr-2"></i>5. Data Processing & Security</h2>
+      <div class="legal-body">
+        <ul>
+          <li><b>Encryption in transit</b>: TLS 1.3, HSTS preload-ready.</li>
+          <li><b>Encryption at rest</b>: AES-256 (Cloudflare R2/D1 default).</li>
+          <li><b>Backup</b>: incremental harian (Cloudflare automatic) + weekly snapshot.</li>
+          <li><b>Incident Response</b>: notifikasi ke Anda &lt; 72 jam jika terjadi data breach (sesuai Pasal 46 UU PDP).</li>
+          <li><b>Audit log</b>: seluruh callback Duitku & admin action ter-log dengan timestamp + IP.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. CONTACT -->
+    <section id="contact" class="section-anchor mb-10 glass rounded-2xl p-6 border-indigo-500/20">
+      <h2 class="legal-h"><i class="fas fa-headset text-indigo-400 mr-2"></i>6. Kontak Legal & Data Protection Officer (DPO)</h2>
+      <div class="grid sm:grid-cols-3 gap-4 text-sm">
+        <div class="glass rounded-xl p-4">
+          <p class="text-[10px] uppercase text-emerald-300 font-bold">Hotline / WA</p>
+          <a href="tel:+6285643383832" class="block mt-1 font-bold text-white">+62 856-4338-3832</a>
+          <p class="text-xs text-gray-400 mt-1">Sen–Sab · 08.00–21.00 WIB</p>
+        </div>
+        <div class="glass rounded-xl p-4">
+          <p class="text-[10px] uppercase text-indigo-300 font-bold">Email Legal & DPO</p>
+          <a href="mailto:sparkmind.support@gmail.com" class="block mt-1 font-bold text-white break-all">sparkmind.support@gmail.com</a>
+          <p class="text-xs text-gray-400 mt-1">Subjek: [LEGAL] / [PDP] / [REFUND]</p>
+        </div>
+        <div class="glass rounded-xl p-4">
+          <p class="text-[10px] uppercase text-amber-300 font-bold">Alamat Surat Resmi</p>
+          <address class="not-italic mt-1 font-bold text-white text-sm leading-relaxed">PT. Waskita Cakrawarti Digital<br>Sokaraja, Kab. Banyumas,<br>Purwokerto, Jawa Tengah 53181</address>
+        </div>
+      </div>
+      <div class="mt-5 pt-5 border-t border-white/5 text-xs text-gray-500">
+        <p>Eskalasi sengketa konsumen: <b>BPSK Banyumas</b>, <b>Kemenkominfo</b>, atau <b>Lembaga PDP</b> setelah resmi dibentuk. Pengaduan transaksi pembayaran juga dapat diteruskan ke <b>Duitku Customer Service</b> (cs@duitku.com).</p>
+      </div>
+    </section>
+
+    <!-- BACK TO TOP -->
+    <div class="text-center mt-12 no-print">
+      <a href="/pricing" class="inline-block px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-300 font-semibold mr-2"><i class="fas fa-arrow-left mr-1"></i>Kembali ke Pricing</a>
+      <a href="#entity" class="inline-block px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/30"><i class="fas fa-arrow-up mr-1"></i>Kembali ke Atas</a>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/5 py-8 text-center text-xs text-gray-500 no-print">
+    <p>© <span id="yr"></span> PT. Waskita Cakrawarti Digital · SparkMind V7.3 · Merchant Duitku <code>D22457</code></p>
+    <p class="mt-2">📧 sparkmind.support@gmail.com · 📞 +62 856-4338-3832 · 🇮🇩 Sokaraja, Banyumas, Jawa Tengah</p>
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+    // Smooth scroll for anchors
+    document.querySelectorAll('a[href^="#"]').forEach(a=>{
+      a.addEventListener('click', e=>{
+        const id = a.getAttribute('href').slice(1);
+        const el = document.getElementById(id);
+        if(el){ e.preventDefault(); el.scrollIntoView({behavior:'smooth', block:'start'}); history.replaceState(null,'','#'+id); }
+      });
+    });
   </script>
 </body>
 </html>`
