@@ -5,30 +5,24 @@
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+
+  // ============================================================
+  // D1 — KuratorKas × Curator.OS database
+  // (binding "DB" is accessed via c.env.DB in src/index.tsx)
+  // database_id is filled-in by `wrangler d1 create webapp-production`
+  // For local dev, --local flag uses .wrangler/state/v3/d1 (auto-SQLite)
+  // ============================================================
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webapp-production",
+      "database_id": "local-dev-placeholder"
+    }
   ]
-  // "vars": {
-  //   "MY_VAR": "my-variable"
-  // },
-  // "kv_namespaces": [
-  //   {
-  //     "binding": "MY_KV_NAMESPACE",
-  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MY_BUCKET",
-  //     "bucket_name": "my-bucket"
-  //   }
-  // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "MY_DB",
-  //     "database_name": "my-database",
-  //     "database_id": ""
-  //   }
-  // ],
-  // "ai": {
-  //   "binding": "AI"
-  // }
+
+  // future bindings (commented placeholders — uncomment & fill when used):
+  // "kv_namespaces": [{ "binding": "KV", "id": "" }],
+  // "r2_buckets":    [{ "binding": "R2", "bucket_name": "webapp-bucket" }],
+  // "ai":            { "binding": "AI" }
 }

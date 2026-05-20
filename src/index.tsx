@@ -9,6 +9,9 @@ type Bindings = {
   DUITKU_MERCHANT_CODE?: string
   DUITKU_ENV?: string  // 'sandbox' | 'production'
   PUBLIC_BASE_URL?: string
+  // KuratorKas × Curator.OS (NEW)
+  JWT_SECRET?: string                    // HMAC-SHA256 signing secret (REQUIRED in prod)
+  DB?: D1Database                        // D1 binding from wrangler.jsonc
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -4509,5 +4512,652 @@ const LEGAL_HTML = `<!DOCTYPE html>
   </script>
 </body>
 </html>`
+
+// ============================================================================
+// KURATORKAS × CURATOR.OS — Auth + Core API (NEW, v2.0)
+// Doctrine: Master-Architect v5.0 CANONICAL | 2026-05-19
+// All routes mounted at /api/v1/* (versioned, separate from V7.x SparkMind APIs)
+// ============================================================================
+
+// ----- helpers: base64url, hex, random ----------------------------------------
+function b64urlEncode(input: ArrayBuffer | Uint8Array | string): string {
+  let bytes: Uint8Array
+  if (typeof input === 'string') bytes = new TextEncoder().encode(input)
+  else if (input instanceof Uint8Array) bytes = input
+  else bytes = new Uint8Array(input)
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+function b64urlDecodeToString(s: string): string {
+  s = s.replace(/-/g, '+').replace(/_/g, '/')
+  while (s.length % 4) s += '='
+  const bin = atob(s)
+  // decode as UTF-8
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new TextDecoder().decode(bytes)
+}
+function toHex(buf: ArrayBuffer | Uint8Array): string {
+  const a = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
+  let out = ''
+  for (let i = 0; i < a.length; i++) out += a[i].toString(16).padStart(2, '0')
+  return out
+}
+function fromHex(hex: string): Uint8Array {
+  const a = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < a.length; i++) a[i] = parseInt(hex.substr(i * 2, 2), 16)
+  return a
+}
+function randomHex(bytes: number): string {
+  const a = new Uint8Array(bytes)
+  crypto.getRandomValues(a)
+  return toHex(a)
+}
+
+// ----- PBKDF2 (Web Crypto) — password hashing --------------------------------
+async function pbkdf2Hash(password: string, saltHex: string, iterations = 100_000): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: fromHex(saltHex), iterations },
+    key,
+    256
+  )
+  return toHex(bits)
+}
+function constantTimeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let r = 0
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return r === 0
+}
+
+// ----- JWT (HS256) — sign / verify ------------------------------------------
+type JWTPayload = { sub: number; email: string; role: string; tier: string; iat: number; exp: number; typ: 'access' | 'refresh' }
+
+async function hmacSha256(secret: string, data: string): Promise<ArrayBuffer> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  return crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))
+}
+async function jwtSign(payload: Omit<JWTPayload, 'iat' | 'exp'> & { ttlSeconds: number; typ?: 'access' | 'refresh' }, secret: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const body: JWTPayload = {
+    sub: payload.sub,
+    email: payload.email,
+    role: payload.role,
+    tier: payload.tier,
+    iat: now,
+    exp: now + payload.ttlSeconds,
+    typ: payload.typ || 'access',
+  }
+  const header = { alg: 'HS256', typ: 'JWT' }
+  const h = b64urlEncode(JSON.stringify(header))
+  const p = b64urlEncode(JSON.stringify(body))
+  const sig = b64urlEncode(await hmacSha256(secret, `${h}.${p}`))
+  return `${h}.${p}.${sig}`
+}
+async function jwtVerify(token: string, secret: string): Promise<JWTPayload | null> {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const [h, p, s] = parts
+  const expectedSig = b64urlEncode(await hmacSha256(secret, `${h}.${p}`))
+  if (expectedSig !== s) return null
+  let payload: JWTPayload
+  try { payload = JSON.parse(b64urlDecodeToString(p)) } catch { return null }
+  if (!payload || typeof payload.exp !== 'number') return null
+  if (payload.exp < Math.floor(Date.now() / 1000)) return null
+  return payload
+}
+function getJwtSecret(c: any): string {
+  // Fallback secret for local dev only — MUST set JWT_SECRET via
+  // `wrangler pages secret put JWT_SECRET` in production.
+  return (c.env?.JWT_SECRET as string) || 'kuratorkas-dev-only-secret-CHANGE-ME-in-prod-2026'
+}
+
+// ----- DB readiness ----------------------------------------------------------
+function requireDB(c: any) {
+  const db = c.env?.DB as D1Database | undefined
+  if (!db) {
+    return { db: null, error: c.json({ ok: false, error: 'DB_NOT_BOUND', hint: 'D1 binding "DB" missing. Run: npx wrangler d1 create webapp-production, paste id into wrangler.jsonc, then `npm run db:migrate:local`.' }, 503) }
+  }
+  return { db, error: null }
+}
+
+// Ensure schema exists on cold-start (no-op if already migrated)
+async function ensureSchema(db: D1Database) {
+  // Run idempotent CREATE TABLE statements — keeps local dev frictionless
+  // even when migrations haven't been applied yet.
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, name TEXT NOT NULL,
+      business_name TEXT, business_type TEXT DEFAULT 'retail',
+      subscription TEXT DEFAULT 'free', role TEXT DEFAULT 'user',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      refresh_token TEXT UNIQUE NOT NULL, user_agent TEXT, ip TEXT,
+      expires_at DATETIME NOT NULL, revoked INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      name TEXT NOT NULL, description TEXT, price INTEGER NOT NULL,
+      stock INTEGER NOT NULL DEFAULT 0, category TEXT, images_json TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS outfits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      occasion TEXT, vibe TEXT, items_json TEXT NOT NULL, caption TEXT,
+      saved INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS contents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      channel TEXT NOT NULL, kind TEXT NOT NULL, topic TEXT,
+      body TEXT NOT NULL, scheduled_at DATETIME, published_at DATETIME,
+      status TEXT DEFAULT 'draft',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS trends (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL,
+      keyword TEXT NOT NULL, score REAL NOT NULL, metadata_json TEXT,
+      captured_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+  ]
+  for (const s of stmts) { try { await db.prepare(s).run() } catch {} }
+}
+
+// ----- auth middleware -------------------------------------------------------
+async function authMiddleware(c: any, next: any) {
+  const h = c.req.header('Authorization') || ''
+  const m = /^Bearer\s+(.+)$/.exec(h.trim())
+  if (!m) return c.json({ ok: false, error: 'UNAUTHENTICATED', hint: 'Missing Authorization: Bearer <token>' }, 401)
+  const payload = await jwtVerify(m[1], getJwtSecret(c))
+  if (!payload) return c.json({ ok: false, error: 'INVALID_TOKEN' }, 401)
+  if (payload.typ !== 'access') return c.json({ ok: false, error: 'WRONG_TOKEN_TYPE', hint: 'Use access token, not refresh' }, 401)
+  c.set('user', payload)
+  await next()
+}
+
+// ----- validation helpers ----------------------------------------------------
+function badRequest(c: any, error: string, detail?: any) {
+  return c.json({ ok: false, error, detail }, 400)
+}
+function isEmail(s: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) }
+
+// ============================================================================
+// AUTH ROUTES — /api/v1/auth/*
+// ============================================================================
+
+// POST /api/v1/auth/register
+app.post('/api/v1/auth/register', async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  await ensureSchema(db!)
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const email = String(body.email || '').trim().toLowerCase()
+  const password = String(body.password || '')
+  const name = String(body.name || '').trim().slice(0, 100)
+  const businessName = body.businessName ? String(body.businessName).trim().slice(0, 120) : null
+  const businessType = ['retail','online','hybrid'].includes(body.businessType) ? body.businessType : 'retail'
+
+  if (!isEmail(email))             return badRequest(c, 'INVALID_EMAIL')
+  if (password.length < 8)         return badRequest(c, 'WEAK_PASSWORD', 'Min 8 characters')
+  if (password.length > 200)       return badRequest(c, 'PASSWORD_TOO_LONG')
+  if (!name)                       return badRequest(c, 'NAME_REQUIRED')
+
+  // unique check
+  const existing = await db!.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: number }>()
+  if (existing) return c.json({ ok: false, error: 'EMAIL_TAKEN' }, 409)
+
+  const salt = randomHex(16)
+  const hash = await pbkdf2Hash(password, salt)
+
+  const ins = await db!.prepare(
+    `INSERT INTO users (email, password_hash, password_salt, name, business_name, business_type) VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(email, hash, salt, name, businessName, businessType).run()
+
+  const userId = Number(ins.meta?.last_row_id || 0)
+  const access  = await jwtSign({ sub: userId, email, role: 'user', tier: 'free', ttlSeconds: 15 * 60,           typ: 'access'  }, getJwtSecret(c))
+  const refresh = randomHex(32)
+  const refreshExpires = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+  await db!.prepare(
+    `INSERT INTO sessions (user_id, refresh_token, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)`
+  ).bind(userId, refresh, c.req.header('user-agent') || '', c.req.header('CF-Connecting-IP') || '', refreshExpires).run()
+
+  return c.json({
+    ok: true,
+    user: { id: userId, email, name, businessName, businessType, subscription: 'free', role: 'user' },
+    accessToken: access,
+    refreshToken: refresh,
+    accessExpiresIn: 15 * 60,
+    refreshExpiresAt: refreshExpires,
+  }, 201)
+})
+
+// POST /api/v1/auth/login
+app.post('/api/v1/auth/login', async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  await ensureSchema(db!)
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const email    = String(body.email    || '').trim().toLowerCase()
+  const password = String(body.password || '')
+  if (!isEmail(email))      return badRequest(c, 'INVALID_EMAIL')
+  if (!password)            return badRequest(c, 'PASSWORD_REQUIRED')
+
+  const user = await db!.prepare(
+    `SELECT id, email, password_hash, password_salt, name, business_name, business_type, subscription, role, is_active
+     FROM users WHERE email = ?`
+  ).bind(email).first<any>()
+
+  // Constant-time-ish response (don't leak whether account exists)
+  if (!user || !user.is_active) {
+    // still do a pbkdf2 to roughly even out timing
+    await pbkdf2Hash(password, '00000000000000000000000000000000')
+    return c.json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401)
+  }
+  const computed = await pbkdf2Hash(password, user.password_salt)
+  if (!constantTimeEqualHex(computed, user.password_hash)) {
+    return c.json({ ok: false, error: 'INVALID_CREDENTIALS' }, 401)
+  }
+
+  const access  = await jwtSign({ sub: user.id, email: user.email, role: user.role || 'user', tier: user.subscription || 'free', ttlSeconds: 15 * 60, typ: 'access' }, getJwtSecret(c))
+  const refresh = randomHex(32)
+  const refreshExpires = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+  await db!.prepare(
+    `INSERT INTO sessions (user_id, refresh_token, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)`
+  ).bind(user.id, refresh, c.req.header('user-agent') || '', c.req.header('CF-Connecting-IP') || '', refreshExpires).run()
+
+  return c.json({
+    ok: true,
+    user: {
+      id: user.id, email: user.email, name: user.name,
+      businessName: user.business_name, businessType: user.business_type,
+      subscription: user.subscription, role: user.role,
+    },
+    accessToken: access,
+    refreshToken: refresh,
+    accessExpiresIn: 15 * 60,
+    refreshExpiresAt: refreshExpires,
+  })
+})
+
+// POST /api/v1/auth/refresh
+app.post('/api/v1/auth/refresh', async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  await ensureSchema(db!)
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const refresh = String(body.refreshToken || '').trim()
+  if (!refresh) return badRequest(c, 'REFRESH_TOKEN_REQUIRED')
+
+  const row = await db!.prepare(
+    `SELECT s.id AS sid, s.expires_at, s.revoked, u.id, u.email, u.role, u.subscription, u.is_active
+     FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.refresh_token = ?`
+  ).bind(refresh).first<any>()
+
+  if (!row || row.revoked || !row.is_active) return c.json({ ok: false, error: 'INVALID_REFRESH' }, 401)
+  if (new Date(row.expires_at).getTime() < Date.now()) return c.json({ ok: false, error: 'REFRESH_EXPIRED' }, 401)
+
+  const access = await jwtSign({
+    sub: row.id, email: row.email,
+    role: row.role || 'user', tier: row.subscription || 'free',
+    ttlSeconds: 15 * 60, typ: 'access',
+  }, getJwtSecret(c))
+  return c.json({ ok: true, accessToken: access, accessExpiresIn: 15 * 60 })
+})
+
+// POST /api/v1/auth/logout
+app.post('/api/v1/auth/logout', async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  await ensureSchema(db!)
+  let body: any = {}
+  try { body = await c.req.json() } catch {}
+  const refresh = String(body.refreshToken || '').trim()
+  if (refresh) {
+    await db!.prepare(`UPDATE sessions SET revoked = 1 WHERE refresh_token = ?`).bind(refresh).run()
+  }
+  return c.json({ ok: true })
+})
+
+// ============================================================================
+// USERS — /api/v1/users/me
+// ============================================================================
+app.get('/api/v1/users/me', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const row = await db!.prepare(
+    `SELECT id, email, name, business_name, business_type, subscription, role, created_at FROM users WHERE id = ?`
+  ).bind(user.sub).first<any>()
+  if (!row) return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 404)
+  return c.json({
+    ok: true,
+    user: {
+      id: row.id, email: row.email, name: row.name,
+      businessName: row.business_name, businessType: row.business_type,
+      subscription: row.subscription, role: row.role, createdAt: row.created_at,
+    }
+  })
+})
+
+app.put('/api/v1/users/me', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const name         = body.name         !== undefined ? String(body.name).slice(0, 100)         : null
+  const businessName = body.businessName !== undefined ? String(body.businessName).slice(0, 120) : null
+  const businessType = ['retail','online','hybrid'].includes(body.businessType) ? body.businessType : null
+
+  const sets: string[] = []
+  const vals: any[] = []
+  if (name !== null)         { sets.push('name = ?');           vals.push(name) }
+  if (businessName !== null) { sets.push('business_name = ?');  vals.push(businessName) }
+  if (businessType !== null) { sets.push('business_type = ?');  vals.push(businessType) }
+  if (!sets.length) return badRequest(c, 'NOTHING_TO_UPDATE')
+  sets.push("updated_at = CURRENT_TIMESTAMP")
+  vals.push(user.sub)
+  await db!.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run()
+  return c.json({ ok: true })
+})
+
+// ============================================================================
+// PRODUCTS — /api/v1/products
+// ============================================================================
+app.get('/api/v1/products', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const limit  = Math.min(parseInt(c.req.query('limit')  || '50', 10) || 50, 200)
+  const offset = Math.max(parseInt(c.req.query('offset') || '0',  10) || 0, 0)
+  const rows = await db!.prepare(
+    `SELECT id, name, description, price, stock, category, images_json, is_active, created_at
+     FROM products WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?`
+  ).bind(user.sub, limit, offset).all<any>()
+  const products = (rows.results || []).map((r: any) => ({ ...r, images: r.images_json ? safeJSON(r.images_json) : [], images_json: undefined }))
+  return c.json({ ok: true, products, limit, offset })
+})
+function safeJSON(s: string) { try { return JSON.parse(s) } catch { return [] } }
+
+app.post('/api/v1/products', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const name        = String(body.name || '').trim().slice(0, 200)
+  const description = body.description ? String(body.description).slice(0, 2000) : null
+  const price       = Number(body.price)
+  const stock       = Number(body.stock || 0)
+  const category    = body.category ? String(body.category).slice(0, 80) : null
+  const images      = Array.isArray(body.images) ? body.images.map((x: any) => String(x).slice(0, 500)).slice(0, 10) : []
+  if (!name)                                  return badRequest(c, 'NAME_REQUIRED')
+  if (!Number.isFinite(price) || price < 0)   return badRequest(c, 'INVALID_PRICE')
+  if (!Number.isFinite(stock) || stock < 0)   return badRequest(c, 'INVALID_STOCK')
+  const ins = await db!.prepare(
+    `INSERT INTO products (user_id, name, description, price, stock, category, images_json) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.sub, name, description, Math.floor(price), Math.floor(stock), category, JSON.stringify(images)).run()
+  return c.json({ ok: true, id: Number(ins.meta?.last_row_id || 0) }, 201)
+})
+
+app.get('/api/v1/products/:id', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const id = parseInt(c.req.param('id'), 10)
+  const row = await db!.prepare(
+    `SELECT id, name, description, price, stock, category, images_json, is_active, created_at, updated_at
+     FROM products WHERE id = ? AND user_id = ?`
+  ).bind(id, user.sub).first<any>()
+  if (!row) return c.json({ ok: false, error: 'NOT_FOUND' }, 404)
+  return c.json({ ok: true, product: { ...row, images: row.images_json ? safeJSON(row.images_json) : [], images_json: undefined } })
+})
+
+app.put('/api/v1/products/:id', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const id = parseInt(c.req.param('id'), 10)
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const sets: string[] = []
+  const vals: any[] = []
+  if (body.name !== undefined)        { sets.push('name = ?');         vals.push(String(body.name).slice(0, 200)) }
+  if (body.description !== undefined) { sets.push('description = ?');  vals.push(body.description ? String(body.description).slice(0, 2000) : null) }
+  if (body.price !== undefined)       { const p = Number(body.price); if (!Number.isFinite(p) || p < 0) return badRequest(c, 'INVALID_PRICE'); sets.push('price = ?'); vals.push(Math.floor(p)) }
+  if (body.stock !== undefined)       { const s = Number(body.stock); if (!Number.isFinite(s) || s < 0) return badRequest(c, 'INVALID_STOCK'); sets.push('stock = ?'); vals.push(Math.floor(s)) }
+  if (body.category !== undefined)    { sets.push('category = ?');     vals.push(body.category ? String(body.category).slice(0, 80) : null) }
+  if (body.images !== undefined)      { const a = Array.isArray(body.images) ? body.images.map((x: any) => String(x).slice(0, 500)).slice(0, 10) : []; sets.push('images_json = ?'); vals.push(JSON.stringify(a)) }
+  if (body.isActive !== undefined)    { sets.push('is_active = ?');    vals.push(body.isActive ? 1 : 0) }
+  if (!sets.length) return badRequest(c, 'NOTHING_TO_UPDATE')
+  sets.push('updated_at = CURRENT_TIMESTAMP')
+  vals.push(id, user.sub)
+  const res = await db!.prepare(`UPDATE products SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).bind(...vals).run()
+  return c.json({ ok: true, changes: res.meta?.changes || 0 })
+})
+
+app.delete('/api/v1/products/:id', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const id = parseInt(c.req.param('id'), 10)
+  const res = await db!.prepare(`DELETE FROM products WHERE id = ? AND user_id = ?`).bind(id, user.sub).run()
+  return c.json({ ok: true, deleted: res.meta?.changes || 0 })
+})
+
+// ============================================================================
+// AI STYLIST CURATOR — /api/v1/stylist
+// (deterministic mock — production version routes to Workers AI / OpenAI)
+// ============================================================================
+app.post('/api/v1/stylist/generate-outfit', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const occasion = String(body.occasion || 'casual').slice(0, 60)
+  const vibe     = String(body.vibe     || 'minimalist').slice(0, 60)
+
+  // pick up to 3 products from user catalog (deterministic mock)
+  const rows = await db!.prepare(
+    `SELECT id, name, category, price FROM products WHERE user_id = ? AND is_active = 1 ORDER BY id DESC LIMIT 20`
+  ).bind(user.sub).all<any>()
+  const pool = rows.results || []
+  if (pool.length === 0) {
+    return c.json({ ok: false, error: 'NO_PRODUCTS', hint: 'Add products first via POST /api/v1/products' }, 400)
+  }
+  const pick = pool.slice(0, Math.min(3, pool.length))
+  const items = pick.map((p: any, i: number) => ({
+    productId: p.id, name: p.name, role: ['top','bottom','accessory'][i] || 'extra', note: `Untuk ${occasion} dengan vibe ${vibe}`
+  }))
+  const caption = `Outfit ${vibe} untuk ${occasion}: ${pick.map((p: any) => p.name).join(' + ')}. Total ${pick.reduce((s: number, p: any) => s + p.price, 0).toLocaleString('id-ID')} IDR.`
+
+  const ins = await db!.prepare(
+    `INSERT INTO outfits (user_id, occasion, vibe, items_json, caption) VALUES (?, ?, ?, ?, ?)`
+  ).bind(user.sub, occasion, vibe, JSON.stringify(items), caption).run()
+
+  return c.json({ ok: true, id: Number(ins.meta?.last_row_id || 0), occasion, vibe, items, caption })
+})
+
+app.get('/api/v1/stylist/outfits', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const rows = await db!.prepare(
+    `SELECT id, occasion, vibe, items_json, caption, saved, created_at FROM outfits WHERE user_id = ? ORDER BY id DESC LIMIT 50`
+  ).bind(user.sub).all<any>()
+  const outfits = (rows.results || []).map((r: any) => ({ ...r, items: safeJSON(r.items_json), items_json: undefined }))
+  return c.json({ ok: true, outfits })
+})
+
+app.post('/api/v1/stylist/outfits/:id/save', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const id = parseInt(c.req.param('id'), 10)
+  const res = await db!.prepare(`UPDATE outfits SET saved = 1 WHERE id = ? AND user_id = ?`).bind(id, user.sub).run()
+  return c.json({ ok: true, changes: res.meta?.changes || 0 })
+})
+
+// ============================================================================
+// CONTENT CURATOR — /api/v1/content
+// ============================================================================
+app.post('/api/v1/content/generate', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  let body: any
+  try { body = await c.req.json() } catch { return badRequest(c, 'INVALID_JSON') }
+  const channel = ['instagram','tiktok','shopee','tokopedia','other'].includes(body.channel) ? body.channel : 'instagram'
+  const kind    = ['caption','hashtags','script','copy'].includes(body.kind)                     ? body.kind    : 'caption'
+  const topic   = String(body.topic || '').slice(0, 200) || 'fashion lokal'
+
+  const bodyText =
+    kind === 'hashtags' ? `#${topic.replace(/\s+/g, '')} #fashionindo #ootd #${channel} #curatoros #kuratorkas #localbrand`
+    : kind === 'script' ? `Hook: "Mau tampil ${topic}? Coba look ini!"\nBody: 3 keypoint singkat.\nCTA: "Cek katalog di bio."`
+    : kind === 'copy'   ? `${topic} — vibe baru, harga ramah. Tap untuk lihat detail.`
+    :                     `✨ ${topic}. Outfit yang bikin kamu beda. Tap untuk lihat koleksi.`
+  const ins = await db!.prepare(
+    `INSERT INTO contents (user_id, channel, kind, topic, body) VALUES (?, ?, ?, ?, ?)`
+  ).bind(user.sub, channel, kind, topic, bodyText).run()
+  return c.json({ ok: true, id: Number(ins.meta?.last_row_id || 0), channel, kind, topic, body: bodyText })
+})
+
+app.get('/api/v1/content', authMiddleware, async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  const user = c.get('user') as JWTPayload
+  const rows = await db!.prepare(
+    `SELECT id, channel, kind, topic, body, status, scheduled_at, published_at, created_at
+     FROM contents WHERE user_id = ? ORDER BY id DESC LIMIT 100`
+  ).bind(user.sub).all<any>()
+  return c.json({ ok: true, contents: rows.results || [] })
+})
+
+// ============================================================================
+// TREND CURATOR — /api/v1/trends (public-read; uses cached trends table)
+// ============================================================================
+app.get('/api/v1/trends', async (c) => {
+  const { db, error } = requireDB(c); if (error) return error
+  await ensureSchema(db!)
+  const source = c.req.query('source') || ''
+  const limit  = Math.min(parseInt(c.req.query('limit') || '20', 10) || 20, 100)
+  const sql = source
+    ? `SELECT id, source, keyword, score, captured_at FROM trends WHERE source = ? ORDER BY score DESC LIMIT ?`
+    : `SELECT id, source, keyword, score, captured_at FROM trends ORDER BY score DESC LIMIT ?`
+  const stmt = source ? db!.prepare(sql).bind(source, limit) : db!.prepare(sql).bind(limit)
+  const rows = await stmt.all<any>()
+  return c.json({ ok: true, trends: rows.results || [] })
+})
+
+// ============================================================================
+// KuratorKas health (separate from V7.x /api/health)
+// ============================================================================
+app.get('/api/v1/health', async (c) => {
+  const db = c.env?.DB
+  let dbStatus: any = { bound: !!db, migrated: false, userCount: 0 }
+  if (db) {
+    try {
+      await ensureSchema(db)
+      const r = await db.prepare(`SELECT COUNT(*) AS n FROM users`).first<any>()
+      dbStatus.migrated = true
+      dbStatus.userCount = Number(r?.n || 0)
+    } catch (e: any) {
+      dbStatus.error = e?.message || 'db_error'
+    }
+  }
+  return c.json({
+    ok: true,
+    service: 'KuratorKas × Curator.OS',
+    version: '2.0.0',
+    doctrine: 'Master-Architect v5.0 CANONICAL | 2026-05-19',
+    db: dbStatus,
+    auth: { jwt: 'HS256', accessTtl: '15m', refreshTtl: '7d' },
+    monorepo: 'sparkmind-sovereign',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Landing page for KuratorKas (lightweight, mounted alongside SparkMind)
+app.get('/kuratorkas', (c) => {
+  noCacheHTML(c)
+  return c.html(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>KuratorKas × Curator.OS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head><body class="bg-[#0A0A0F] text-white min-h-screen">
+<main class="max-w-5xl mx-auto px-6 py-12">
+  <header class="mb-10">
+    <p class="text-xs uppercase tracking-[0.3em] text-amber-300/80 font-bold">SparkMind Sovereign Ecosystem</p>
+    <h1 class="text-4xl md:text-5xl font-extrabold mt-2">KuratorKas <span class="text-amber-300">×</span> Curator.OS</h1>
+    <p class="text-gray-300 mt-3 max-w-2xl">AI Stylist · Content Curator · Trend Curator · Pricing Curator · Marketplace Curator — semua dalam satu platform untuk UMKM fashion Indonesia.</p>
+    <div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+      <i class="fas fa-circle text-[8px]"></i> EXECUTE-READY · v2.0 · Doctrine: Master-Architect v5.0
+    </div>
+  </header>
+
+  <section class="grid md:grid-cols-2 gap-4 mb-10">
+    <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+      <h2 class="font-bold text-amber-300 mb-2"><i class="fas fa-key mr-1"></i> Auth API (/api/v1/auth)</h2>
+      <ul class="text-sm text-gray-300 space-y-1 font-mono">
+        <li>POST /auth/register</li>
+        <li>POST /auth/login</li>
+        <li>POST /auth/refresh</li>
+        <li>POST /auth/logout</li>
+      </ul>
+    </div>
+    <div class="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-5">
+      <h2 class="font-bold text-indigo-300 mb-2"><i class="fas fa-store mr-1"></i> Core API (Bearer JWT)</h2>
+      <ul class="text-sm text-gray-300 space-y-1 font-mono">
+        <li>GET/POST /api/v1/products</li>
+        <li>POST /api/v1/stylist/generate-outfit</li>
+        <li>POST /api/v1/content/generate</li>
+        <li>GET /api/v1/trends</li>
+        <li>GET /api/v1/users/me</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-white/10 bg-white/5 p-6">
+    <h2 class="text-xl font-bold mb-3"><i class="fas fa-bolt text-amber-300 mr-1"></i> Quickstart (cURL)</h2>
+<pre class="text-xs bg-black/40 p-4 rounded-xl overflow-x-auto"><code># 1) Register
+curl -sX POST $HOST/api/v1/auth/register -H 'content-type: application/json' \\
+  -d '{"email":"alice@toko.id","password":"secret123","name":"Alice","businessName":"Toko Alice","businessType":"online"}'
+
+# 2) Login (save accessToken)
+TOKEN=$(curl -sX POST $HOST/api/v1/auth/login -H 'content-type: application/json' \\
+  -d '{"email":"alice@toko.id","password":"secret123"}' | jq -r .accessToken)
+
+# 3) Create product
+curl -sX POST $HOST/api/v1/products -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \\
+  -d '{"name":"Blazer Oversized","price":250000,"stock":12,"category":"outerwear"}'
+
+# 4) Generate outfit
+curl -sX POST $HOST/api/v1/stylist/generate-outfit -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \\
+  -d '{"occasion":"kondangan","vibe":"elegan"}'</code></pre>
+  </section>
+
+  <footer class="mt-12 text-xs text-gray-500 text-center">
+    <p>© <span id="yr"></span> SparkMind Sovereign Ecosystem · KuratorKas × Curator.OS v2.0</p>
+    <p class="mt-1">Health: <a class="text-emerald-300 underline" href="/api/v1/health">/api/v1/health</a> · Mother repo: <code>sparkmind-sovereign</code></p>
+  </footer>
+</main>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body></html>`)
+})
 
 export default app

@@ -1,6 +1,101 @@
-# SparkMind V7.4 PRODUCTION HARDENED — Duitku Onboarding Edition (Flow + Email Draft)
+# SparkMind Sovereign · V7.4 + KuratorKas × Curator.OS v2.0 (Monorepo)
 
-## Project Overview
+> **Monorepo**: `sparkmind-sovereign`
+> **Doctrine**: Master-Architect v5.0 CANONICAL | 2026-05-19
+> **Status**: EXECUTE-READY · PUBLIC-SAFE
+
+This repo is the **mother repo** that hosts two products on a single Cloudflare
+Pages deployment:
+
+1. **SparkMind V7.4** — AI Strategic Guide + Clarity Coach + Duitku Pop checkout
+   (production hardened, merchant `D22457`). Routes: `/`, `/app`, `/pricing`,
+   `/clarity`, `/flow`, `/email-duitku`, `/legal`, `/api/health`,
+   `/api/payment/*`, `/api/clarity/*`.
+2. **KuratorKas × Curator.OS v2.0** *(NEW, this commit)* — AI multi-agent
+   platform for UMKM fashion retail. Routes: `/kuratorkas`, `/api/v1/auth/*`,
+   `/api/v1/users/me`, `/api/v1/products`, `/api/v1/stylist/*`,
+   `/api/v1/content/*`, `/api/v1/trends`, `/api/v1/health`.
+
+---
+
+## 🆕 KuratorKas × Curator.OS v2.0 — what's new
+
+| Layer | Detail |
+|---|---|
+| Auth | **JWT (HS256)** access (15 min) + opaque refresh (7 days), bcrypt-class PBKDF2 password hashing (Web Crypto, 100k iterations + per-user salt) |
+| Database | **Cloudflare D1** (`webapp-production`), migrations in `migrations/0001_auth_and_kurator.sql`, auto-`CREATE TABLE IF NOT EXISTS` on cold start as safety net |
+| Curator-OS | 5 agents stubbed: **AI Stylist** (deterministic mock, ready for Workers AI swap), **Content Curator**, **Trend Curator**, Pricing Curator (roadmap), Marketplace Curator (roadmap) |
+| Security | Constant-time-ish login compare, no email enumeration, scoping per `user_id` on every product/outfit/content row, CORS on `/api/*` |
+| Docs | `docs/kuratorkas/` contains all 11 doctrine files (PRD, Design, Architecture, SM-TOD, Curator-OS spec, Integration Map, Execution Plan, Master Index, Manifest, Integration script, README v2) |
+
+### KuratorKas API endpoints (v1)
+```
+POST   /api/v1/auth/register         { email, password, name, businessName?, businessType? }
+POST   /api/v1/auth/login            { email, password }
+POST   /api/v1/auth/refresh          { refreshToken }
+POST   /api/v1/auth/logout           { refreshToken }
+GET    /api/v1/users/me              [Bearer]
+PUT    /api/v1/users/me              [Bearer] { name?, businessName?, businessType? }
+GET    /api/v1/products              [Bearer] ?limit&offset
+POST   /api/v1/products              [Bearer] { name, price, stock?, category?, images? }
+GET    /api/v1/products/:id          [Bearer]
+PUT    /api/v1/products/:id          [Bearer]
+DELETE /api/v1/products/:id          [Bearer]
+POST   /api/v1/stylist/generate-outfit  [Bearer] { occasion?, vibe? }
+GET    /api/v1/stylist/outfits          [Bearer]
+POST   /api/v1/stylist/outfits/:id/save [Bearer]
+POST   /api/v1/content/generate         [Bearer] { channel, kind, topic }
+GET    /api/v1/content                  [Bearer]
+GET    /api/v1/trends                   ?source&limit (public)
+GET    /api/v1/health                   (public)
+GET    /kuratorkas                      (HTML landing)
+```
+
+### KuratorKas quickstart (cURL)
+```bash
+HOST=https://sparkmind-v2.pages.dev   # or http://localhost:3000
+
+# 1) Register
+curl -sX POST $HOST/api/v1/auth/register -H 'content-type: application/json' \
+  -d '{"email":"alice@toko.id","password":"secret12345","name":"Alice","businessName":"Toko Alice","businessType":"online"}'
+
+# 2) Login → grab accessToken
+TOKEN=$(curl -sX POST $HOST/api/v1/auth/login -H 'content-type: application/json' \
+  -d '{"email":"alice@toko.id","password":"secret12345"}' | jq -r .accessToken)
+
+# 3) Create products
+curl -sX POST $HOST/api/v1/products -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"name":"Blazer Oversized","price":250000,"stock":12,"category":"outerwear"}'
+
+# 4) Generate outfit
+curl -sX POST $HOST/api/v1/stylist/generate-outfit -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"occasion":"kondangan","vibe":"elegan"}'
+```
+
+### KuratorKas — local dev workflow
+```bash
+npm install
+npm run build
+npx wrangler d1 migrations apply webapp-production --local   # apply schema
+npm run db:seed:local                                        # seed trends
+pm2 start ecosystem.config.cjs                               # start on :3000
+curl http://localhost:3000/api/v1/health                     # verify D1 + auth
+```
+
+### KuratorKas — production secrets (REQUIRED before public traffic)
+```bash
+# JWT signing secret — REQUIRED, else falls back to a dev default (insecure)
+npx wrangler pages secret put JWT_SECRET --project-name webapp
+
+# (later) marketplace OAuth — only when those modules ship
+npx wrangler pages secret put SHOPEE_CLIENT_ID --project-name webapp
+npx wrangler pages secret put SHOPEE_CLIENT_SECRET --project-name webapp
+# … same for Tokopedia, TikTok Shop
+```
+
+---
+
+## SparkMind V7.4 PRODUCTION HARDENED (existing)
 - **Name**: SparkMind V7.4 PRODUCTION HARDENED (Duitku Onboarding Edition — `/flow` + `/email-duitku`)
 - **Goal**: AI Strategic Guide untuk hidup berdaulat — dengan **AI Clarity & Recovery Coach** (Painkiller Module) yang etis, boundary-first, no-manipulation, untuk situasi hubungan / overthinking / pasca-blokir / decision-paralysis.
 - **Features**: 19+ AI Categories + 12 Productivity Tools + PWA + Pricing/Pro/Lifetime Deal + **Duitku Pop JS Checkout (PRODUCTION)** + **Hardened Callback (IP whitelist 10 prod IPs + MD5 sig verify + idempotent)** + **6 Clarity Coach modules (all with `disclaimer` field)** + 10 pricing plans (4 core + 6 painkiller packs) + **NEW: `/flow` payment-flow doc page (Duitku Onboarding poin #10) + `/email-duitku` email draft + 10-dok checklist (Duitku Project D22457)**.

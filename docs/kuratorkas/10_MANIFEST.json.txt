@@ -1,0 +1,102 @@
+{
+  "name": "KuratorKas × Curator.OS",
+  "version": "2.0.0",
+  "owner": "Reza Estes / Haidar — Sovereign AI Dev",
+  "doctrine": "Master-Architect v5.0 CANONICAL | 2026-05-19",
+  "status": "EXECUTE-READY | PUBLIC-SAFE",
+  "created_at": "2026-05-19",
+  "files": [
+    {
+      "name": "01_KURATORKAS_PRD_v2.md",
+      "type": "markdown",
+      "purpose": "Product Requirements Document",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "02_KURATORKAS_DESIGN_DOC_v2.md",
+      "type": "markdown",
+      "purpose": "UX/UI + System Design Document",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "03_KURATORKAS_ARCHITECTURE_v2.md",
+      "type": "markdown",
+      "purpose": "Cloudflare-native Architecture Document",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "04_KURATORKAS_SM_TOD_v2.md",
+      "type": "markdown",
+      "purpose": "Sprint Module Task Order Document",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "05_CURATOR_OS_SPEC_v1.md",
+      "type": "markdown",
+      "purpose": "Curator-OS Multi-Agent Specification",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "06_INTEGRATION_MAP_v2.md",
+      "type": "markdown",
+      "purpose": "Cross-Brand SparkMind Ecosystem Map",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "07_EXECUTION_PLAN_v2.md",
+      "type": "markdown",
+      "purpose": "90-Day Roadmap",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "08_MASTER_INDEX.md",
+      "type": "markdown",
+      "purpose": "Index of all documents",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "09_README.md",
+      "type": "markdown",
+      "purpose": "Onboarding + Quickstart",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "10_MANIFEST.json",
+      "type": "json",
+      "purpose": "Bundle manifest",
+      "size": null,
+      "checksum": null
+    },
+    {
+      "name": "11_INTEGRATION_SCRIPT.sh",
+      "type": "shell",
+      "purpose": "Deploy/migrate automation",
+      "size": null,
+      "checksum": null
+    }
+  ],
+  "dependencies": {
+    "cloudflare": {
+      "workers": ">=3.0",
+      "pages": ">=1.0",
+      "d1": ">=1.0",
+      "kv": ">=1.0",
+      "r2": ">=1.0",
+      "vectorize": ">=1.0",
+      "queues": ">=1.0",
+      "durable_objects": ">=1.0"
+    },
+    "node": ">=18.0",
+    "wrangler": ">=3.0"
+  },
+  "bundle_url": "https://github.com/sparkmind/kuratorkas/releases/download/v2.0.0/KURATORKAS-FULL-BUNDLE-v2.0.zip"
+}
