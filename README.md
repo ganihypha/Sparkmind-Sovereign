@@ -1,8 +1,26 @@
 # SparkMind Sovereign · V7.4 + KuratorKas × Curator.OS v2.0 (Monorepo)
 
 > **Monorepo**: `sparkmind-sovereign`
-> **Doctrine**: Master-Architect v5.0 CANONICAL | 2026-05-19
-> **Status**: EXECUTE-READY · PUBLIC-SAFE
+> **Doctrine**: Master-Architect **v7.0** CANONICAL — OBP HYBRID MERCHANT-OF-RECORD LOCK | 2026-05-21
+> **Status**: EXECUTE-READY · PUBLIC-SAFE · 4-SUB-BRAND LOCKED · 4-LAYER HYBRID LOCKED
+> **Companion bundle**: `docs/doctrine/v2.0/` (10 canonical docs)
+
+## 🏛️ 4-Layer Architecture Lock (v7.0)
+
+| Layer | Entity | Domain | Role |
+|------|--------|--------|------|
+| **1 · Brand** | SparkMind (mother) + 4 sub-brand | `*.sparkmind.web.id` | Public-facing product narrative |
+| **2 · Merchant** | **Oasis BI Pro (MoR)** | `oasis-bi-pro.web.id` | Verified PSP merchant, settlement recipient |
+| **3 · Domain** | Cloudflare-native routing | `pay.oasis-bi-pro.web.id` | Checkout orchestrator |
+| **4 · Compliance** | UU PDP · PSE Kominfo · BI/PJP | umbrella under OBP | DPO + audit + disclosure |
+
+## 🗂️ Triple-Repo Architecture (v7.0)
+
+| Repo | Role | URL |
+|------|------|-----|
+| **Sparkmind-Sovereign** | Mother monorepo · SSOT · this repo | https://github.com/ganihypha/Sparkmind-Sovereign |
+| **kuratorkas** | Sub-brand standalone (mirror of `apps/kuratorkas/`) | https://github.com/ganihypha/kuratorkas |
+| **oasis-bi-pro** | Merchant-of-Record · payment backend | https://github.com/ganihypha/oasis-bi-pro |
 
 This repo is the **mother repo** that hosts two products on a single Cloudflare
 Pages deployment:
