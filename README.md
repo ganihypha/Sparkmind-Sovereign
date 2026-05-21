@@ -16,11 +16,16 @@
 
 ## 🗂️ Triple-Repo Architecture (v7.0)
 
-| Repo | Role | URL |
-|------|------|-----|
-| **Sparkmind-Sovereign** | Mother monorepo · SSOT · this repo | https://github.com/ganihypha/Sparkmind-Sovereign |
-| **kuratorkas** | Sub-brand standalone (mirror of `apps/kuratorkas/`) | https://github.com/ganihypha/kuratorkas |
-| **oasis-bi-pro** | Merchant-of-Record · payment backend | https://github.com/ganihypha/oasis-bi-pro |
+| Repo | Role | GitHub | Cloudflare Pages (LIVE) |
+|------|------|--------|------------------------|
+| **Sparkmind-Sovereign** | Mother monorepo · SSOT · this repo | [github](https://github.com/ganihypha/Sparkmind-Sovereign) | [sparkmind-sovereign.pages.dev](https://sparkmind-sovereign.pages.dev) ✅ |
+| **kuratorkas** | Sub-brand standalone (mirror of `apps/kuratorkas/`) | [github](https://github.com/ganihypha/kuratorkas) | [kuratorkas.pages.dev](https://kuratorkas.pages.dev) ✅ |
+| **oasis-bi-pro** | Merchant-of-Record · payment backend (Duitku D20919 live) | [github](https://github.com/ganihypha/oasis-bi-pro) | [oasis-bi-pro.pages.dev](https://oasis-bi-pro.pages.dev) ✅ |
+
+**Last deploy (D1/D60 doctrine v7.0 sprint)**: 2026-05-21
+- Sparkmind-Sovereign: `d7982af` → `396efa1f.sparkmind-sovereign.pages.dev`
+- KuratorKas: subtree synced → `e022995e.kuratorkas.pages.dev`
+- OBP MoR: `eae13a1` → `e3a31923.oasis-bi-pro.pages.dev`
 
 This repo is the **mother repo** that hosts two products on a single Cloudflare
 Pages deployment:
