@@ -31,3 +31,13 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+.env.local
+.env.*
+!.env.example
+*.zip
+*.tar.gz
+.pm2/
+pids/
+.dev.vars.local
+.cache/
+coverage/
