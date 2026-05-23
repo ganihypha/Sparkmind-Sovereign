@@ -267,6 +267,17 @@ payments.post('/webhooks/obp', async (c) => {
   else if (eventType === 'payment.expired') newStatus = 'expired'
   else if (eventType === 'payment.cancelled') newStatus = 'cancelled'
 
+  // Idempotency guard — OBP retries on 5xx/timeout. If we already settled
+  // this invoice, don't re-run side effects. Return 200 so OBP stops retrying.
+  if (inv.status === 'settled' && newStatus === 'settled') {
+    return c.json(jsonOk({
+      processed: true,
+      idempotent_replay: true,
+      status: inv.status,
+      invoice_id: inv.id,
+    }))
+  }
+
   await c.env.DB.prepare(
     `UPDATE obp_invoices
         SET status = ?, webhook_payload = ?, updated_at = unixepoch(),
@@ -303,7 +314,50 @@ payments.post('/webhooks/obp', async (c) => {
 })
 
 // ----------------------------------------------------------------
-// 6. Doctrine info (Layer 2 disclosure)
+// 6. DEV-ONLY: simulate OBP webhook settle (used during onboarding
+//    before OBP wires the real webhook to /api/payments/webhooks/obp).
+//    Disabled when ENVIRONMENT === 'production' AND OBP_WEBHOOK_SECRET
+//    is a real (non-dev) secret.
+// ----------------------------------------------------------------
+payments.post('/dev/simulate-settle/:externalRef', async (c) => {
+  const env = c.env
+  const isProdLocked = env.ENVIRONMENT === 'production'
+    && env.OBP_WEBHOOK_SECRET
+    && !env.OBP_WEBHOOK_SECRET.startsWith('dev-')
+  if (isProdLocked) {
+    return c.json(jsonErr('Disabled in production with real OBP_WEBHOOK_SECRET'), 403)
+  }
+  const ref = c.req.param('externalRef')
+  const inv = await env.DB.prepare(
+    `SELECT * FROM obp_invoices WHERE external_ref = ?`
+  ).bind(ref).first<any>()
+  if (!inv) return c.json(jsonErr('Invoice not found'), 404)
+
+  // Forge a webhook body and POST to ourselves so the full path is exercised
+  const body = JSON.stringify({
+    event: 'payment.settled',
+    invoice_id: inv.obp_invoice_id,
+    external_ref: ref,
+    amount_idr: inv.amount_idr,
+    settled_at: new Date().toISOString(),
+    simulated: true,
+  })
+  const url = new URL(c.req.url)
+  url.pathname = '/api/payments/webhooks/obp'
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-OBP-Signature': 'dev-simulated',
+    },
+    body,
+  })
+  const payload = await res.json().catch(() => ({}))
+  return c.json(jsonOk({ simulated: true, webhook_result: payload }))
+})
+
+// ----------------------------------------------------------------
+// 7. Doctrine info (Layer 2 disclosure)
 // ----------------------------------------------------------------
 payments.get('/doctrine', (c) => {
   return c.json(jsonOk({
