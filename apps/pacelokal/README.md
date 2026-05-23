@@ -200,13 +200,30 @@ pm2 logs pacelokal --nostream
 
 - **Platform**: Cloudflare Pages
 - **Project**: `pacelokal`
-- **Status**: ✅ **DEPLOYED & VERIFIED · 2026-05-23**
+- **Status**: ✅ **DEPLOYED & VERIFIED · 2026-05-23** (root-cause D1 fix shipped)
 - **Production URL**: **https://pacelokal.pages.dev**
-- **Deploy preview**: https://43bbc5d1.pacelokal.pages.dev
+- **Latest deploy**: https://447fd003.pacelokal.pages.dev
 - **D1 Database**: `pacelokal-production` (UUID `76db8c12-72e1-4d5b-94aa-2524fb76f60e`) · 8 tables · seeded
 - **Custom domain target**: `pacelokal.sparkmind.web.id` (DNS pending)
 - **Tech Stack**: Hono 4.6 + TypeScript + Vite 6 + Cloudflare Pages + D1 + Tailwind (CDN)
 - **Secrets configured**: `OBP_API_KEY`, `OBP_WEBHOOK_SECRET`, `JWT_SECRET` (dev placeholders — replace with prod OBP credentials when OBP issues PaceLokal sub-brand key)
+
+### 🔧 Root-cause fix log (2026-05-23)
+
+| # | Symptom | Root cause | Fix |
+|---|---------|-----------|-----|
+| 1 | `wrangler pages dev` boot OK but every API → 500 `Cannot read property 'prepare' of undefined` | `ecosystem.config.cjs` invoked `wrangler pages dev dist` **without** any D1 flag, so `c.env.DB` was undefined | Dropped explicit `--d1` flag; wrangler 4.x auto-reads `d1_databases[]` from `wrangler.jsonc` when `pages_build_output_dir` is set |
+| 2 | After adding `--d1 DB=pacelokal-production`, API → 500 `no such table: clubs` even though migrations applied | Wrangler 4.x with `--d1 binding=name` creates a **separate local shadow DB** (different hash) which is empty | Same fix — drop the `--d1` flag entirely so the migration DB and runtime DB share the same hash |
+| 3 | Repeated webhook from OBP could double-process settlement | No idempotency guard on `payment.settled` handler | Added early-return `idempotent_replay:true` when `inv.status === 'settled'` already |
+| 4 | No way to flip an invoice to "settled" during OBP onboarding (before OBP webhook is wired) | n/a — feature gap | New `POST /api/payments/dev/simulate-settle/:externalRef` (auto-disabled in prod when real `OBP_WEBHOOK_SECRET` set) |
+
+### Setting real OBP secrets (once OBP issues PaceLokal sub-brand credentials)
+
+```bash
+echo "<real-bearer-token>" | npx wrangler pages secret put OBP_API_KEY --project-name pacelokal
+echo "<real-hmac-secret>"  | npx wrangler pages secret put OBP_WEBHOOK_SECRET --project-name pacelokal
+echo "<random-256-bit>"    | npx wrangler pages secret put JWT_SECRET --project-name pacelokal
+```
 
 ### Live endpoints (verified)
 ```
