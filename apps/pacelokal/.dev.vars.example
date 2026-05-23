@@ -1,0 +1,8 @@
+# PaceLokal — Sample environment file
+# Copy to .dev.vars (gitignored) and fill real values
+OBP_CHECKOUT_BASE=https://pay.oasis-bi-pro.web.id
+PACELOKAL_BRAND_PREFIX=pl
+ENVIRONMENT=development
+OBP_API_KEY=<obtain-from-obp-merchant-onboarding>
+OBP_WEBHOOK_SECRET=<hmac-shared-secret-from-obp>
+JWT_SECRET=<random-256-bit-secret>

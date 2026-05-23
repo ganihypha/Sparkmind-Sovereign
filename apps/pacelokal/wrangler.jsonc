@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // ============================================================
+  // PaceLokal — Cloudflare Pages Configuration
+  // Sub-brand #2 of SparkMind Sovereign · Hyperlocal Running
+  // Owner: Reza Estes / Haidar — Sovereign AI Dev
+  // Doctrine: Master-Architect v7.0 CANONICAL · OBP HYBRID LOCK
+  // ============================================================
+  "name": "pacelokal",
+  "compatibility_date": "2026-04-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "./dist",
+
+  "vars": {
+    "ENVIRONMENT": "production",
+    "APP_NAME": "PaceLokal",
+    "APP_VERSION": "0.1.0",
+    "OBP_CHECKOUT_BASE": "https://pay.oasis-bi-pro.web.id",
+    "PACELOKAL_BRAND_PREFIX": "pl"
+  },
+
+  // ============================================================
+  // D1 Database — clubs · members · runs · events · obp_invoices
+  //   npx wrangler d1 create pacelokal-production
+  //   npx wrangler d1 migrations apply pacelokal-production
+  // ============================================================
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pacelokal-production",
+      "database_id": "PLACEHOLDER-FILL-AFTER-CREATE"
+    }
+  ]
+
+  // ----------------------------------------
+  // SECRETS (set via `wrangler pages secret put ... --project-name pacelokal`):
+  //   OBP_API_KEY          — Bearer token issued by OBP for PaceLokal sub-brand
+  //   OBP_WEBHOOK_SECRET   — HMAC-SHA256 shared secret for /webhooks/obp signature verify
+  //   JWT_SECRET           — Future use (member auth Day 30+)
+  // ----------------------------------------
+}
