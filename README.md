@@ -99,7 +99,8 @@
 | `GET /api/payments/invoices/:externalRef` | — | Lookup local invoice |
 | `POST /api/payments/event/:eventId/register` | `{name, email, phone?, member_id?}` | Free → register direct; Paid → OBP invoice + checkout URL |
 | `POST /api/payments/club/:clubId/upgrade-pro` | `{name, email, phone?}` | OBP invoice for Rp 49.000/month |
-| `POST /api/payments/webhooks/obp` | (raw JSON) Header `X-OBP-Signature` | HMAC-verified status update + side effects |
+| `POST /api/payments/webhooks/obp` | (raw JSON) Header `X-OBP-Signature` | HMAC-verified status update + side effects · **idempotent on replay** |
+| `POST /api/payments/dev/simulate-settle/:externalRef` | — | **DEV ONLY** · forge a `payment.settled` webhook (disabled in prod when real `OBP_WEBHOOK_SECRET` is set) |
 
 ### Example: register for a paid event
 
