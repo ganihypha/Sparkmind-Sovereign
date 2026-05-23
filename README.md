@@ -195,13 +195,27 @@ npm run db:reset:local
 pm2 logs pacelokal --nostream
 ```
 
-## 🚀 Deployment
+## 🚀 Deployment — 🟢 LIVE
 
 - **Platform**: Cloudflare Pages
 - **Project**: `pacelokal`
-- **Production URL** (post-deploy): `https://pacelokal.pages.dev`
-- **Custom domain target**: `pacelokal.sparkmind.web.id`
-- **Tech Stack**: Hono 4 + TypeScript + Cloudflare Pages + D1 + Tailwind (CDN)
+- **Status**: ✅ **DEPLOYED & VERIFIED · 2026-05-23**
+- **Production URL**: **https://pacelokal.pages.dev**
+- **Deploy preview**: https://43bbc5d1.pacelokal.pages.dev
+- **D1 Database**: `pacelokal-production` (UUID `76db8c12-72e1-4d5b-94aa-2524fb76f60e`) · 8 tables · seeded
+- **Custom domain target**: `pacelokal.sparkmind.web.id` (DNS pending)
+- **Tech Stack**: Hono 4.6 + TypeScript + Vite 6 + Cloudflare Pages + D1 + Tailwind (CDN)
+- **Secrets configured**: `OBP_API_KEY`, `OBP_WEBHOOK_SECRET`, `JWT_SECRET` (dev placeholders — replace with prod OBP credentials when OBP issues PaceLokal sub-brand key)
+
+### Live endpoints (verified)
+```
+✅ GET  https://pacelokal.pages.dev/api/health
+✅ GET  https://pacelokal.pages.dev/api/clubs
+✅ GET  https://pacelokal.pages.dev/api/payments/doctrine
+✅ POST https://pacelokal.pages.dev/api/payments/club/:id/upgrade-pro
+✅ GET  https://pacelokal.pages.dev/static/app.js
+✅ GET  https://pacelokal.pages.dev/robots.txt
+```
 
 ### Production deploy (after `setup_cloudflare_api_key`)
 
